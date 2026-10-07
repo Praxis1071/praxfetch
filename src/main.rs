@@ -62,6 +62,9 @@ fn main() {
         ("Swap", info::swap(&s.swap)),
         ("Disk", info::disk(&s.disk)),
         ("Battery", info::battery(&s.battery)),
+        ("GPU", info::gpu(&s.gpu)),
+        ("Display", info::display(&s.display)),
+        ("Network", info::network(&s.network)),
     ];
 
     let label_width = fields
