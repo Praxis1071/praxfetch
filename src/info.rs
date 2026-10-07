@@ -375,6 +375,8 @@ pub fn collect() -> SystemInfo {
         .or_else(|_| env::var("TERM"))
         .unwrap_or_else(|_| "unknown".into());
 
+    let (memory, swap) = read_memory_and_swap();
+
     SystemInfo {
         user: env::var("USER")
             .or_else(|_| env::var("USERNAME"))
@@ -398,8 +400,8 @@ pub fn collect() -> SystemInfo {
         desktop,
         terminal,
         cpu: read_cpu(),
-        memory: read_memory_and_swap().0,
-        swap: read_memory_and_swap().1,
+        memory,
+        swap,
         battery: read_battery(),
         disk: read_disk(),
     }
