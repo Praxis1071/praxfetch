@@ -69,11 +69,11 @@ fn main() {
 
     let label_width = fields
         .iter()
-        .map(|(key, _)| key.len())
+        .map(|(key, _)| key.chars().count())
         .max()
         .unwrap_or(0);
 
-    let logo_width = logo.iter().map(|line| line.len()).max().unwrap_or(0);
+    let logo_width = ascii::logo_width(&logo);
     let logo_column_width = logo_width + 4;
 
     println!();
@@ -81,7 +81,7 @@ fn main() {
 
     for i in 0..logo.len().max(fields.len()) {
         let left = logo.get(i).map(String::as_str).unwrap_or("");
-        let left_padded = format!("{:<width$}", left, width = logo_column_width);
+        let left_padded = ascii::pad_logo_line(left, logo_column_width);
 
         let right = fields
             .get(i)
@@ -91,7 +91,17 @@ fn main() {
             })
             .unwrap_or_default();
 
-        println!("{}{}", ascii::colorize_logo_line(&left_padded, &s.os), right);
+        let logo_part = if left.is_empty() {
+            " ".repeat(logo_column_width)
+        } else {
+            ascii::colorize_logo_line(left, &s.os)
+                + &" ".repeat(logo_column_width - left.chars().count())
+        };
+
+        debug_assert_eq!(logo_part.chars().count(), logo_column_width);
+        debug_assert_eq!(left_padded.chars().count(), logo_column_width);
+
+        println!("{}{}", logo_part, right);
     }
 
     println!();
