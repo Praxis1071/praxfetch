@@ -64,19 +64,41 @@ pub struct GpuDevice {
 
 #[derive(Default)]
 pub struct DisplayInfo {
-    pub connected: usize,
+    pub devices: Vec<DisplayDevice>,
+}
+
+#[derive(Default)]
+pub struct DisplayDevice {
+    pub connector: String,
     pub resolution: String,
 }
 
 #[derive(Default)]
 pub struct NetworkInfo {
     pub interfaces: usize,
+    pub physical: usize,
     pub wireless: usize,
+    pub virtual_interfaces: usize,
     pub up: usize,
 }
 
 fn read_path(path: &Path) -> String {
     fs::read_to_string(path).map(|s| s.trim().to_owned()).unwrap_or_default()
+}
+
+fn gpu_vendor_name(vendor: &str) -> Option<&'static str> {
+    match vendor.to_ascii_lowercase().as_str() {
+        "0x8086" => Some("Intel"),
+        "0x1002" => Some("AMD"),
+        "0x10de" => Some("NVIDIA"),
+        "0x102b" => Some("Matrox"),
+        "0x121a" => Some("3dfx"),
+        "0x1414" => Some("Microsoft"),
+        "0x15ad" => Some("VMware"),
+        "0x1af4" => Some("Virtio"),
+        "0x1b36" => Some("QEMU"),
+        _ => None,
+    }
 }
 
 fn read_gpu() -> GpuInfo {
@@ -103,7 +125,10 @@ fn read_gpu() -> GpuInfo {
             let vendor = read_path(&device.join("vendor"));
             let device_id = read_path(&device.join("device"));
             if !vendor.is_empty() && !device_id.is_empty() {
-                gpu_name = format!("{vendor}:{device_id}");
+                gpu_name = match gpu_vendor_name(&vendor) {
+                    Some(name) => format!("{name} GPU {device_id}"),
+                    None => format!("{vendor}:{device_id}"),
+                };
             }
         }
 
@@ -119,32 +144,70 @@ fn read_gpu() -> GpuInfo {
 }
 
 fn read_display() -> DisplayInfo {
-    let Ok(entries) = fs::read_dir("/sys/class/drm") else { return DisplayInfo::default(); };
-    let mut connected = 0;
-    let mut resolution = String::new();
+    let Ok(entries) = fs::read_dir("/sys/class/drm") else {
+        return DisplayInfo::default();
+    };
+
+    let mut devices = Vec::new();
+
     for entry in entries.filter_map(Result::ok) {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if !name.starts_with("card") || !name.contains('-') { continue; }
-        let base = entry.path();
-        if read_path(&base.join("status")) != "connected" { continue; }
-        connected += 1;
-        if resolution.is_empty() {
-            resolution = read_path(&base.join("modes")).lines().next().unwrap_or_default().to_owned();
+        if !name.starts_with("card") || !name.contains('-') {
+            continue;
         }
+
+        let base = entry.path();
+        if read_path(&base.join("status")) != "connected" {
+            continue;
+        }
+
+        let resolution = read_path(&base.join("modes"))
+            .lines()
+            .next()
+            .unwrap_or_default()
+            .to_owned();
+
+        devices.push(DisplayDevice {
+            connector: name,
+            resolution,
+        });
     }
-    DisplayInfo { connected, resolution }
+
+    devices.sort_by(|a, b| a.connector.cmp(&b.connector));
+    DisplayInfo { devices }
 }
 
 fn read_network() -> NetworkInfo {
-    let Ok(entries) = fs::read_dir("/sys/class/net") else { return NetworkInfo::default(); };
+    let Ok(entries) = fs::read_dir("/sys/class/net") else {
+        return NetworkInfo::default();
+    };
+
     let mut result = NetworkInfo::default();
+
     for entry in entries.filter_map(Result::ok) {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if name == "lo" { continue; }
+        if name == "lo" {
+            continue;
+        }
+
         result.interfaces += 1;
-        if entry.path().join("wireless").exists() { result.wireless += 1; }
-        if read_path(&entry.path().join("operstate")) == "up" { result.up += 1; }
+        let path = entry.path();
+
+        if path.join("wireless").exists() {
+            result.wireless += 1;
+        }
+
+        if path.join("device").exists() {
+            result.physical += 1;
+        } else {
+            result.virtual_interfaces += 1;
+        }
+
+        if read_path(&path.join("operstate")) == "up" {
+            result.up += 1;
+        }
     }
+
     result
 }
 
@@ -662,14 +725,35 @@ pub fn gpu(g: &GpuInfo) -> String {
 }
 
 pub fn display(d: &DisplayInfo) -> String {
-    if d.connected == 0 { return "none".into(); }
-    if d.resolution.is_empty() { return format!("{} connected", d.connected); }
-    format!("{} ({} connected)", d.resolution, d.connected)
+    if d.devices.is_empty() {
+        return "none".into();
+    }
+
+    d.devices
+        .iter()
+        .map(|device| {
+            if device.resolution.is_empty() {
+                device.connector.clone()
+            } else {
+                format!("{} {}", device.resolution, device.connector)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" / ")
 }
 
 pub fn network(n: &NetworkInfo) -> String {
-    if n.interfaces == 0 { return "none".into(); }
-    format!("{} up / {} interfaces ({} wireless)", n.up, n.interfaces, n.wireless)
+    if n.interfaces == 0 {
+        return "none".into();
+    }
+
+    let physical = if n.physical == 1 { "physical" } else { "physical" };
+    let virtuals = if n.virtual_interfaces == 1 { "virtual" } else { "virtual" };
+
+    format!(
+        "{} up / {} interfaces ({} wireless, {} {}, {} {})",
+        n.up, n.interfaces, n.wireless, n.physical, physical, n.virtual_interfaces, virtuals
+    )
 }
 
 pub fn shell(shell: &str, version: &str) -> String {
@@ -751,6 +835,43 @@ mod tests {
             ],
         });
         assert_eq!(value, "Intel GPU (i915) / AMD GPU (amdgpu)");
+    }
+
+    #[test]
+    fn gpu_vendor_fallback_is_human_readable() {
+        assert_eq!(gpu_vendor_name("0x8086"), Some("Intel"));
+        assert_eq!(gpu_vendor_name("0x1002"), Some("AMD"));
+        assert_eq!(gpu_vendor_name("0x10DE"), Some("NVIDIA"));
+        assert_eq!(gpu_vendor_name("0xffff"), None);
+    }
+
+    #[test]
+    fn display_formats_multiple_connectors() {
+        let value = display(&DisplayInfo {
+            devices: vec![
+                DisplayDevice {
+                    connector: "card0-eDP-1".into(),
+                    resolution: "1920x1080".into(),
+                },
+                DisplayDevice {
+                    connector: "card0-HDMI-A-1".into(),
+                    resolution: "2560x1440".into(),
+                },
+            ],
+        });
+        assert_eq!(value, "1920x1080 card0-eDP-1 / 2560x1440 card0-HDMI-A-1");
+    }
+
+    #[test]
+    fn network_handles_physical_and_virtual_interfaces() {
+        let value = network(&NetworkInfo {
+            interfaces: 3,
+            physical: 2,
+            wireless: 1,
+            virtual_interfaces: 1,
+            up: 2,
+        });
+        assert_eq!(value, "2 up / 3 interfaces (1 wireless, 2 physical, 1 virtual)");
     }
 
     #[test]
