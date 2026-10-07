@@ -395,32 +395,60 @@ fn read_battery() -> BatteryInfo {
         return BatteryInfo::default();
     };
 
+    let mut count = 0u32;
+    let mut percent_sum = 0.0f32;
+    let mut any_charging = false;
+    let mut any_discharging = false;
+    let mut first_name = String::new();
+
     for entry in entries.filter_map(Result::ok) {
         let name = entry.file_name().to_string_lossy().into_owned();
         if !name.starts_with("BAT") {
             continue;
         }
 
+        if first_name.is_empty() {
+            first_name = name;
+        }
+
         let base = entry.path();
-        let capacity = fs::read_to_string(base.join("capacity"))
+        if let Some(percent) = fs::read_to_string(base.join("capacity"))
             .ok()
             .and_then(|v| v.trim().parse::<f32>().ok())
-            .filter(|v| (0.0..=100.0).contains(v));
+            .filter(|v| (0.0..=100.0).contains(v))
+        {
+            percent_sum += percent;
+            count += 1;
+        }
 
-        let status = fs::read_to_string(base.join("status"))
+        match fs::read_to_string(base.join("status"))
             .ok()
-            .map(|v| v.trim().to_ascii_lowercase());
-
-        let charging = status.as_deref().map(|v| v == "charging" || v == "full");
-
-        return BatteryInfo {
-            name,
-            percent: capacity,
-            charging,
-        };
+            .map(|v| v.trim().to_ascii_lowercase())
+            .as_deref()
+        {
+            Some("charging") | Some("full") => any_charging = true,
+            Some("discharging") => any_discharging = true,
+            _ => {}
+        }
     }
 
-    BatteryInfo::default()
+    if count == 0 {
+        return BatteryInfo::default();
+    }
+
+    let charging = if any_charging {
+        Some(true)
+    } else if any_discharging {
+        Some(false)
+    } else {
+        None
+    };
+
+    BatteryInfo {
+        name: first_name,
+        percent: Some(percent_sum / count as f32),
+        charging,
+    }
 }
 
 fn read_disk() -> DiskInfo {
