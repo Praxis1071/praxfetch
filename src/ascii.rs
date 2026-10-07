@@ -165,3 +165,29 @@ pub fn blocks(no_color: bool) -> String {
     out.push_str("\x1b[0m");
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn logo_lines_have_no_trailing_whitespace() {
+        let os = OsInfo {
+            id: "gentoo".to_owned(),
+            ..Default::default()
+        };
+        assert!(logo(&os).iter().all(|line| line == line.trim_end()));
+    }
+
+    #[test]
+    fn logo_width_uses_character_columns() {
+        let lines = vec!["abc".to_owned(), "123456".to_owned()];
+        assert_eq!(logo_width(&lines), 6);
+    }
+
+    #[test]
+    fn logo_padding_is_exact() {
+        assert_eq!(pad_logo_line("abc", 6), "abc   ");
+        assert_eq!(pad_logo_line("abcdef", 3), "abcdef");
+    }
+}
