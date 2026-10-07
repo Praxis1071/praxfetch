@@ -73,15 +73,12 @@ fn main() {
 
     for i in 0..logo.len().max(fields.len()) {
         let left = logo.get(i).map(String::as_str).unwrap_or("");
-        let left_padded = format!(
-            "{left:<logo_column_width$}",
-            logo_column_width = logo_column_width
-        );
+        let left_padded = format!("{:<width$}", left, width = logo_column_width);
 
         let right = fields
             .get(i)
             .map(|(key, value)| {
-                let key = format!("{key:<label_width$}", label_width = label_width);
+                let key = format!("{:<width$}", key, width = label_width);
                 format!("{} {}", key.cyan().bold(), value)
             })
             .unwrap_or_default();
