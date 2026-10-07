@@ -17,7 +17,9 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    if args.no_color {
+    let no_color = args.no_color || std::env::var_os("NO_COLOR").is_some();
+
+    if no_color {
         colored::control::set_override(false);
     }
 
@@ -40,17 +42,26 @@ fn main() {
         None => format!("{} (count unavailable)", s.packages.manager),
     };
 
+    let load = s
+        .load_avg
+        .map(|(one, five, fifteen)| format!("{one:.2} {five:.2} {fifteen:.2}"))
+        .unwrap_or_else(|| "unknown".to_owned());
+
     let fields = [
         ("OS", os),
         ("Host", host),
         ("Kernel", s.kernel),
         ("Uptime", info::uptime(s.uptime)),
+        ("Load Avg", load),
         ("Packages", packages),
         ("Shell", info::shell(&s.shell, &s.shell_version)),
         ("DE/WM", s.desktop),
         ("Terminal", s.terminal),
         ("CPU", format!("{} ({} cores)", s.cpu.model, s.cpu.cores)),
         ("Memory", info::memory(&s.memory)),
+        ("Swap", info::swap(&s.swap)),
+        ("Disk", info::disk(&s.disk)),
+        ("Battery", info::battery(&s.battery)),
     ];
 
     let label_width = fields
@@ -59,12 +70,7 @@ fn main() {
         .max()
         .unwrap_or(0);
 
-    let logo_width = logo
-        .iter()
-        .map(|line| line.len())
-        .max()
-        .unwrap_or(0);
-
+    let logo_width = logo.iter().map(|line| line.len()).max().unwrap_or(0);
     let logo_column_width = logo_width + 4;
 
     println!();
@@ -89,7 +95,7 @@ fn main() {
     println!(
         "{}{}",
         " ".repeat(logo_column_width),
-        ascii::blocks(args.no_color)
+        ascii::blocks(no_color)
     );
     println!();
 }
