@@ -35,13 +35,12 @@ fn main() {
     };
 
     let os = info::os_label(&s.os);
-    let packages = if s.packages.count > 0 {
-        format!("{} ({})", s.packages.count, s.packages.manager)
-    } else {
-        s.packages.manager.clone()
+    let packages = match s.packages.count {
+        Some(count) => format!("{} ({})", count, s.packages.manager),
+        None => format!("{} (count unavailable)", s.packages.manager),
     };
 
-    let fields = vec![
+    let fields = [
         ("OS", os),
         ("Host", host),
         ("Kernel", s.kernel),
@@ -56,13 +55,13 @@ fn main() {
 
     let label_width = fields
         .iter()
-        .map(|(key, _)| key.chars().count())
+        .map(|(key, _)| key.len())
         .max()
         .unwrap_or(0);
 
     let logo_width = logo
         .iter()
-        .map(|line| line.chars().count())
+        .map(|line| line.len())
         .max()
         .unwrap_or(0);
 
