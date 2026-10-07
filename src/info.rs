@@ -83,7 +83,9 @@ pub struct NetworkInfo {
 }
 
 fn read_path(path: &Path) -> String {
-    fs::read_to_string(path).map(|s| s.trim().to_owned()).unwrap_or_default()
+    fs::read_to_string(path)
+        .map(|s| s.trim().to_owned())
+        .unwrap_or_default()
 }
 
 fn gpu_vendor_name(vendor: &str) -> Option<&'static str> {
@@ -109,7 +111,9 @@ fn read_gpu() -> GpuInfo {
 
     for entry in entries.filter_map(Result::ok) {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if !name.starts_with("card") || name.contains('-') { continue; }
+        if !name.starts_with("card") || name.contains('-') {
+            continue;
+        }
 
         let device = entry.path().join("device");
         let mut gpu_name = ["product_name", "product", "name"]
@@ -136,7 +140,11 @@ fn read_gpu() -> GpuInfo {
 
         if !gpu_name.is_empty() || !driver.is_empty() {
             devices.push(GpuDevice {
-                name: if gpu_name.is_empty() { "unknown".into() } else { gpu_name },
+                name: if gpu_name.is_empty() {
+                    "unknown".into()
+                } else {
+                    gpu_name
+                },
                 driver,
             });
         }
@@ -551,7 +559,10 @@ fn read_battery() -> BatteryInfo {
         None
     };
 
-    BatteryInfo { percent: Some(percent), charging }
+    BatteryInfo {
+        percent: Some(percent),
+        charging,
+    }
 }
 
 fn read_disk() -> DiskInfo {
@@ -721,12 +732,14 @@ pub fn gpu(g: &GpuInfo) -> String {
 
     g.devices
         .iter()
-        .map(|device| match (device.name.is_empty(), device.driver.is_empty()) {
-            (true, true) => "unknown".to_owned(),
-            (false, true) => device.name.clone(),
-            (true, false) => device.driver.clone(),
-            (false, false) => format!("{} ({})", device.name, device.driver),
-        })
+        .map(
+            |device| match (device.name.is_empty(), device.driver.is_empty()) {
+                (true, true) => "unknown".to_owned(),
+                (false, true) => device.name.clone(),
+                (true, false) => device.driver.clone(),
+                (false, false) => format!("{} ({})", device.name, device.driver),
+            },
+        )
         .collect::<Vec<_>>()
         .join(" / ")
 }
@@ -803,7 +816,13 @@ mod tests {
 
     #[test]
     fn swap_handles_missing_and_clamped_values() {
-        assert_eq!(swap(&SwapInfo { total_kb: 0, free_kb: 0 }), "none");
+        assert_eq!(
+            swap(&SwapInfo {
+                total_kb: 0,
+                free_kb: 0
+            }),
+            "none"
+        );
         assert_eq!(
             swap(&SwapInfo {
                 total_kb: 1_048_576,
@@ -875,7 +894,10 @@ mod tests {
             virtual_interfaces: 1,
             up: 2,
         });
-        assert_eq!(value, "2 up / 3 interfaces (1 wireless, 2 physical, 1 virtual)");
+        assert_eq!(
+            value,
+            "2 up / 3 interfaces (1 wireless, 2 physical, 1 virtual)"
+        );
     }
 
     #[test]
