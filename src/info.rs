@@ -30,7 +30,7 @@ pub struct MemoryInfo {
 #[derive(Default)]
 pub struct PackageInfo {
     pub manager: String,
-    pub count: usize,
+    pub count: Option<usize>,
 }
 
 pub struct SystemInfo {
@@ -64,24 +64,58 @@ fn read_os() -> OsInfo {
             continue;
         };
 
-        let value = value.trim();
-        let value = value
-            .strip_prefix('"')
-            .and_then(|v| v.strip_suffix('"'))
-            .or_else(|| value.strip_prefix('\'').and_then(|v| v.strip_suffix('\'')))
-            .unwrap_or(value);
+        let value = parse_os_release_value(value.trim());
 
         match key {
-            "ID" => o.id = value.to_owned(),
-            "ID_LIKE" => o.id_like = value.to_owned(),
-            "NAME" => o.name = value.to_owned(),
-            "VERSION" => o.version = value.to_owned(),
-            "BUILD_ID" => o.build_id = value.to_owned(),
+            "ID" => o.id = value,
+            "ID_LIKE" => o.id_like = value,
+            "NAME" => o.name = value,
+            "VERSION" => o.version = value,
+            "BUILD_ID" => o.build_id = value,
             _ => {}
         }
     }
 
     o
+}
+
+fn parse_os_release_value(value: &str) -> String {
+    let value = value.trim();
+
+    if value.len() >= 2 {
+        let bytes = value.as_bytes();
+        let quoted = (bytes[0] == b'"' && bytes[value.len() - 1] == b'"')
+            || (bytes[0] == b'\'' && bytes[value.len() - 1] == b'\'');
+
+        if quoted {
+            let inner = &value[1..value.len() - 1];
+            return unescape_os_release(inner);
+        }
+    }
+
+    value.to_owned()
+}
+
+fn unescape_os_release(value: &str) -> String {
+    let mut output = String::with_capacity(value.len());
+    let mut escaped = false;
+
+    for ch in value.chars() {
+        if escaped {
+            output.push(ch);
+            escaped = false;
+        } else if ch == '\\' {
+            escaped = true;
+        } else {
+            output.push(ch);
+        }
+    }
+
+    if escaped {
+        output.push('\\');
+    }
+
+    output
 }
 
 fn read_cpu() -> CpuInfo {
@@ -172,10 +206,12 @@ fn read_packages() -> PackageInfo {
     if let Ok(entries) = fs::read_dir("/var/lib/pacman/local") {
         return PackageInfo {
             manager: "pacman".into(),
-            count: entries
-                .filter_map(Result::ok)
-                .filter(|entry| entry.file_type().map(|t| t.is_dir()).unwrap_or(false))
-                .count(),
+            count: Some(
+                entries
+                    .filter_map(Result::ok)
+                    .filter(|entry| entry.file_type().map(|t| t.is_dir()).unwrap_or(false))
+                    .count(),
+            ),
         };
     }
 
@@ -183,22 +219,27 @@ fn read_packages() -> PackageInfo {
         let text = read("/var/lib/dpkg/status");
         return PackageInfo {
             manager: "dpkg".into(),
-            count: text
-                .split("\n\n")
-                .filter(|paragraph| {
-                    paragraph.lines().any(|line| line.trim() == "Status: install ok installed")
-                })
-                .count(),
+            count: Some(
+                text.split("\n\n")
+                    .filter(|paragraph| {
+                        paragraph
+                            .lines()
+                            .any(|line| line.trim() == "Status: install ok installed")
+                    })
+                    .count(),
+            ),
         };
     }
 
     if Path::new("/lib/apk/db/installed").exists() {
         return PackageInfo {
             manager: "apk".into(),
-            count: read("/lib/apk/db/installed")
-                .lines()
-                .filter(|line| line.starts_with("P:"))
-                .count(),
+            count: Some(
+                read("/lib/apk/db/installed")
+                    .lines()
+                    .filter(|line| line.starts_with("P:"))
+                    .count(),
+            ),
         };
     }
 
@@ -207,13 +248,13 @@ fn read_packages() -> PackageInfo {
     {
         return PackageInfo {
             manager: "rpm".into(),
-            count: 0,
+            count: None,
         };
     }
 
     PackageInfo {
         manager: "unknown".into(),
-        count: 0,
+        count: None,
     }
 }
 
@@ -314,5 +355,41 @@ pub fn shell(shell: &str, version: &str) -> String {
         name.into()
     } else {
         format!("{name} {version}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cpu_ranges_are_counted() {
+        assert_eq!(count_cpu_range("0-3"), 4);
+        assert_eq!(count_cpu_range("0-3,8-11"), 8);
+        assert_eq!(count_cpu_range("0,2,4"), 3);
+        assert_eq!(count_cpu_range(""), 0);
+    }
+
+    #[test]
+    fn uptime_is_formatted() {
+        assert_eq!(uptime(0.0), "0h 0m");
+        assert_eq!(uptime(3661.0), "1h 1m");
+        assert_eq!(uptime(90_061.0), "1d 1h 1m");
+    }
+
+    #[test]
+    fn memory_never_exceeds_total() {
+        let value = memory(&MemoryInfo {
+            total_kb: 1_048_576,
+            available_kb: 2_000_000,
+        });
+        assert_eq!(value, "0.0 GiB / 1.0 GiB (0%)");
+    }
+
+    #[test]
+    fn os_release_quotes_and_escapes_are_parsed() {
+        assert_eq!(parse_os_release_value("\"CachyOS 2026\""), "CachyOS 2026");
+        assert_eq!(parse_os_release_value("'CachyOS'"), "CachyOS");
+        assert_eq!(parse_os_release_value("\"A\\\\\\\"B\""), "A\"B");
     }
 }
