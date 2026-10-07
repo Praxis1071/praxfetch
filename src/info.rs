@@ -102,7 +102,9 @@ fn gpu_vendor_name(vendor: &str) -> Option<&'static str> {
 }
 
 fn read_gpu() -> GpuInfo {
-    let Ok(entries) = fs::read_dir("/sys/class/drm") else { return GpuInfo::default(); };
+    let Ok(entries) = fs::read_dir("/sys/class/drm") else {
+        return GpuInfo::default();
+    };
     let mut devices = Vec::new();
 
     for entry in entries.filter_map(Result::ok) {
