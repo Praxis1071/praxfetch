@@ -81,8 +81,6 @@ fn main() {
 
     for i in 0..logo.len().max(fields.len()) {
         let left = logo.get(i).map(String::as_str).unwrap_or("");
-        let left_padded = ascii::pad_logo_line(left, logo_column_width);
-
         let right = fields
             .get(i)
             .map(|(key, value)| {
@@ -97,9 +95,6 @@ fn main() {
             ascii::colorize_logo_line(left, &s.os)
                 + &" ".repeat(logo_column_width - left.chars().count())
         };
-
-        debug_assert_eq!(logo_part.chars().count(), logo_column_width);
-        debug_assert_eq!(left_padded.chars().count(), logo_column_width);
 
         println!("{}{}", logo_part, right);
     }
