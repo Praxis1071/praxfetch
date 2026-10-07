@@ -93,6 +93,7 @@ This mirrors a principle used by mature fetch tools such as Fastfetch: detection
 - Startup benchmark
 - More parser tests
 - Better package-manager coverage without subprocesses
+- Native GPU, display and network detection
 
 ### 0.2.x — Hardware
 - GPU identification through Linux sysfs/DRM
