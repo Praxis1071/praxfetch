@@ -41,7 +41,6 @@ pub struct PackageInfo {
 
 #[derive(Default)]
 pub struct BatteryInfo {
-    pub name: String,
     pub percent: Option<f32>,
     pub charging: Option<bool>,
 }
@@ -399,16 +398,11 @@ fn read_battery() -> BatteryInfo {
     let mut percent_sum = 0.0f32;
     let mut any_charging = false;
     let mut any_discharging = false;
-    let mut first_name = String::new();
 
     for entry in entries.filter_map(Result::ok) {
         let name = entry.file_name().to_string_lossy().into_owned();
         if !name.starts_with("BAT") {
             continue;
-        }
-
-        if first_name.is_empty() {
-            first_name = name;
         }
 
         let base = entry.path();
@@ -445,7 +439,6 @@ fn read_battery() -> BatteryInfo {
     };
 
     BatteryInfo {
-        name: first_name,
         percent: Some(percent_sum / count as f32),
         charging,
     }
