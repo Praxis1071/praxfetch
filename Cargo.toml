@@ -2,6 +2,7 @@
 name = "praxfetch"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.85"
 description = "Fast, zero-subprocess Linux system information fetch tool written in Rust."
 license = "MIT"
 repository = "https://github.com/Praxis1071/praxfetch"
@@ -9,6 +10,7 @@ repository = "https://github.com/Praxis1071/praxfetch"
 [dependencies]
 clap = { version = "4.6.7", features = ["derive"] }
 colored = "3.1.1"
+libc = "0.2.190"
 
 [profile.release]
 opt-level = 3
