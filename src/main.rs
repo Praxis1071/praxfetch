@@ -92,8 +92,8 @@ fn main() {
         let logo_part = if left.is_empty() {
             " ".repeat(logo_column_width)
         } else {
-            ascii::colorize_logo_line(left, &s.os)
-                + &" ".repeat(logo_column_width - left.chars().count())
+            let padded = ascii::pad_logo_line(left, logo_column_width);
+            ascii::colorize_logo_line(&padded, &s.os)
         };
 
         println!("{}{}", logo_part, right);
