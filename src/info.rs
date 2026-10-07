@@ -462,13 +462,7 @@ fn read_battery() -> BatteryInfo {
     }
 
     let percent = if total_weight > 0.0 {
-        let weighted = weighted_percent / total_weight;
-        if fallback_count > 0 {
-            let fallback = fallback_sum / fallback_count as f32;
-            Some((weighted + fallback) / 2.0)
-        } else {
-            Some(weighted)
-        }
+        Some(weighted_percent / total_weight)
     } else if fallback_count > 0 {
         Some(fallback_sum / fallback_count as f32)
     } else {
@@ -740,6 +734,23 @@ mod tests {
             }),
             "unknown"
         );
+    }
+
+    #[test]
+    fn gpu_formats_multiple_devices() {
+        let value = gpu(&GpuInfo {
+            devices: vec![
+                GpuDevice {
+                    name: "Intel GPU".into(),
+                    driver: "i915".into(),
+                },
+                GpuDevice {
+                    name: "AMD GPU".into(),
+                    driver: "amdgpu".into(),
+                },
+            ],
+        });
+        assert_eq!(value, "Intel GPU (i915) / AMD GPU (amdgpu)");
     }
 
     #[test]
