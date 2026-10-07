@@ -26,8 +26,8 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **Memory** — /proc/meminfo
 - **Swap** — /proc/meminfo
 - **Root Disk** — POSIX statvfs("/") with no subprocess
-- **Battery** — /sys/class/power_supply/BAT* when available
-- **GPU** — Linux DRM/sysfs card devices and kernel driver
+- **Battery** — /sys/class/power_supply/BAT* when available, with capacity-aware multi-battery aggregation
+- **GPU** — Linux DRM/sysfs card devices and kernel driver, including multiple GPUs
 - **Display** — connected DRM connectors and native mode
 - **Network** — interface count, link state, and wireless interface summary
 
@@ -97,6 +97,7 @@ This mirrors a principle used by mature fetch tools such as Fastfetch: detection
 - More parser tests
 - Better package-manager coverage without subprocesses
 - Hardware edge-case testing and parser hardening
+- Multi-GPU and multi-battery regression coverage
 
 ### 0.2.x — Hardware
 - Richer GPU identification and multi-GPU handling
