@@ -27,9 +27,9 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **Swap** — /proc/meminfo
 - **Root Disk** — POSIX statvfs("/") with no subprocess
 - **Battery** — /sys/class/power_supply/BAT* when available, with capacity-aware multi-battery aggregation
-- **GPU** — Linux DRM/sysfs card devices and kernel driver, including multiple GPUs
-- **Display** — connected DRM connectors and native mode
-- **Network** — interface count, link state, and wireless interface summary
+- **GPU** — Linux DRM/sysfs card devices and kernel driver, including multiple GPUs and human-readable PCI-vendor fallbacks
+- **Display** — all connected DRM connectors and their reported native modes
+- **Network** — interface count, link state, wireless count, and physical vs virtual interface classification
 
 ## Distro logos
 
@@ -43,6 +43,7 @@ Distro family selection uses both ID and ID_LIKE, so derivatives can inherit a s
 - **No network access:** normal operation is completely local.
 - **No privileged access required:** missing or unreadable system files simply fall back to an unavailable value.
 - **No guessed shell versions:** praxfetch never launches a shell to ask for its version.
+- **Native hardware detection:** GPU, display, battery, and network data come from Linux sysfs/proc interfaces rather than external utilities.
 - **No misleading package count:** RPM is detected but intentionally reports count unavailable until a native parser is implemented.
 - **No ANSI alignment bugs:** widths are calculated before color escape sequences are applied.
 
@@ -97,7 +98,8 @@ This mirrors a principle used by mature fetch tools such as Fastfetch: detection
 - More parser tests
 - Better package-manager coverage without subprocesses
 - Hardware edge-case testing and parser hardening
-- Multi-GPU and multi-battery regression coverage
+- Multi-GPU, multi-display, and multi-battery regression coverage
+- Network interface classification regression coverage
 
 ### 0.2.x — Hardware
 - Richer GPU identification and multi-GPU handling
