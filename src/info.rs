@@ -575,9 +575,9 @@ fn read_disk() -> DiskInfo {
     }
 
     let stat = unsafe { stat.assume_init() };
-    let block_size = stat.f_frsize as u64;
-    let total = (stat.f_blocks as u64).saturating_mul(block_size);
-    let available = (stat.f_bavail as u64).saturating_mul(block_size);
+    let block_size = stat.f_frsize;
+    let total = stat.f_blocks.saturating_mul(block_size);
+    let available = stat.f_bavail.saturating_mul(block_size);
 
     DiskInfo {
         total_bytes: total,
