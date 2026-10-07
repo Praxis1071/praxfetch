@@ -92,7 +92,21 @@ pub fn logo(os: &OsInfo) -> Vec<String> {
         ],
     };
 
-    lines.iter().map(|line| (*line).to_owned()).collect()
+    lines.iter().map(|line| line.trim_end().to_owned()).collect()
+}
+
+/// Return the terminal-column width of the built-in ASCII logo.
+pub fn logo_width(lines: &[String]) -> usize {
+    lines.iter().map(|line| line.chars().count()).max().unwrap_or(0)
+}
+
+/// Pad a logo line to an exact terminal-column width.
+pub fn pad_logo_line(line: &str, width: usize) -> String {
+    let current = line.chars().count();
+    if current >= width {
+        return line.to_owned();
+    }
+    format!("{}{}", line, " ".repeat(width - current))
 }
 
 fn distro_family<'a>(id: &'a str, like: &'a str) -> &'a str {
