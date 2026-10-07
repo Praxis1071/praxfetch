@@ -194,10 +194,12 @@ fn count_cpu_range(value: &str) -> usize {
         .sum()
 }
 
-fn read_memory() -> MemoryInfo {
+fn read_memory_and_swap() -> (MemoryInfo, SwapInfo) {
     let text = fs::read_to_string("/proc/meminfo").unwrap_or_default();
     let mut total = 0;
     let mut available = 0;
+    let mut swap_total = 0;
+    let mut swap_free = 0;
 
     for line in text.lines() {
         if let Some(v) = line.strip_prefix("MemTotal:") {
@@ -212,29 +214,14 @@ fn read_memory() -> MemoryInfo {
                 .next()
                 .and_then(|x| x.parse().ok())
                 .unwrap_or(0);
-        }
-    }
-
-    MemoryInfo {
-        total_kb: total,
-        available_kb: available,
-    }
-}
-
-fn read_swap() -> SwapInfo {
-    let text = fs::read_to_string("/proc/meminfo").unwrap_or_default();
-    let mut total = 0;
-    let mut free = 0;
-
-    for line in text.lines() {
-        if let Some(v) = line.strip_prefix("SwapTotal:") {
-            total = v
+        } else if let Some(v) = line.strip_prefix("SwapTotal:") {
+            swap_total = v
                 .split_whitespace()
                 .next()
                 .and_then(|x| x.parse().ok())
                 .unwrap_or(0);
         } else if let Some(v) = line.strip_prefix("SwapFree:") {
-            free = v
+            swap_free = v
                 .split_whitespace()
                 .next()
                 .and_then(|x| x.parse().ok())
@@ -242,10 +229,16 @@ fn read_swap() -> SwapInfo {
         }
     }
 
-    SwapInfo {
-        total_kb: total,
-        free_kb: free,
-    }
+    (
+        MemoryInfo {
+            total_kb: total,
+            available_kb: available,
+        },
+        SwapInfo {
+            total_kb: swap_total,
+            free_kb: swap_free,
+        },
+    )
 }
 
 fn read_load_avg() -> Option<(f64, f64, f64)> {
@@ -349,7 +342,7 @@ fn read_battery() -> BatteryInfo {
 
 fn read_disk() -> DiskInfo {
     let path = std::ffi::CString::new("/").expect("static path contains no NUL");
-    let mut stat = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+    let mut stat = std::mem::MaybeUninit::<libc::statvfs>::zeroed();
 
     let result = unsafe { libc::statvfs(path.as_ptr(), stat.as_mut_ptr()) };
     if result != 0 {
@@ -405,8 +398,8 @@ pub fn collect() -> SystemInfo {
         desktop,
         terminal,
         cpu: read_cpu(),
-        memory: read_memory(),
-        swap: read_swap(),
+        memory: read_memory_and_swap().0,
+        swap: read_memory_and_swap().1,
         battery: read_battery(),
         disk: read_disk(),
     }
