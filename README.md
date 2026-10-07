@@ -27,6 +27,9 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **Swap** — /proc/meminfo
 - **Root Disk** — POSIX statvfs("/") with no subprocess
 - **Battery** — /sys/class/power_supply/BAT* when available
+- **GPU** — Linux DRM/sysfs card devices and kernel driver
+- **Display** — connected DRM connectors and native mode
+- **Network** — interface count, link state, and wireless interface summary
 
 ## Distro logos
 
@@ -81,7 +84,7 @@ The release profile uses optimization, ThinLTO, one codegen unit, abort-on-panic
 The code is intentionally small, but follows a useful detection/formatting boundary:
 
 - src/info.rs — Linux detection, parsing, validation, and formatting helpers.
-- src/ascii.rs — distro logo selection, logo coloring, and color blocks.
+- src/ascii.rs — distro logo selection, terminal-width-safe logo padding, logo coloring, and color blocks.
 - src/main.rs — CLI parsing and final presentation.
 
 This mirrors a principle used by mature fetch tools such as Fastfetch: detection logic should not depend on presentation logic.
@@ -93,13 +96,13 @@ This mirrors a principle used by mature fetch tools such as Fastfetch: detection
 - Startup benchmark
 - More parser tests
 - Better package-manager coverage without subprocesses
-- Native GPU, display and network detection
+- Hardware edge-case testing and parser hardening
 
 ### 0.2.x — Hardware
-- GPU identification through Linux sysfs/DRM
-- Display/resolution information
+- Richer GPU identification and multi-GPU handling
+- Multi-display and connector edge cases
 - More detailed battery/power information
-- Network interface summary
+- More precise network interface classification
 
 ### 0.3.x — UX
 - Configurable module selection
