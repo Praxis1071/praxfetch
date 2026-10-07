@@ -52,6 +52,86 @@ pub struct DiskInfo {
     pub available_bytes: u64,
 }
 
+#[derive(Default)]
+pub struct GpuInfo {
+    pub name: String,
+    pub driver: String,
+}
+
+#[derive(Default)]
+pub struct DisplayInfo {
+    pub connected: usize,
+    pub resolution: String,
+}
+
+#[derive(Default)]
+pub struct NetworkInfo {
+    pub interfaces: usize,
+    pub wireless: usize,
+    pub up: usize,
+}
+
+fn read_path(path: &Path) -> String {
+    fs::read_to_string(path).map(|s| s.trim().to_owned()).unwrap_or_default()
+}
+
+fn read_gpu() -> GpuInfo {
+    let Ok(entries) = fs::read_dir("/sys/class/drm") else { return GpuInfo::default(); };
+    for entry in entries.filter_map(Result::ok) {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !name.starts_with("card") || name.contains('-') { continue; }
+        let device = entry.path().join("device");
+        let mut gpu_name = ["product_name", "product", "name"]
+            .iter()
+            .map(|key| read_path(&device.join(key)))
+            .find(|value| !value.is_empty())
+            .unwrap_or_default();
+        let driver = fs::read_link(device.join("driver"))
+            .ok()
+            .and_then(|p| p.file_name().map(|v| v.to_string_lossy().into_owned()))
+            .unwrap_or_default();
+        if gpu_name.is_empty() {
+            let vendor = read_path(&device.join("vendor"));
+            let device_id = read_path(&device.join("device"));
+            if !vendor.is_empty() && !device_id.is_empty() { gpu_name = format!("{vendor}:{device_id}"); }
+        }
+        if !gpu_name.is_empty() || !driver.is_empty() {
+            return GpuInfo { name: if gpu_name.is_empty() { "unknown".into() } else { gpu_name }, driver };
+        }
+    }
+    GpuInfo::default()
+}
+
+fn read_display() -> DisplayInfo {
+    let Ok(entries) = fs::read_dir("/sys/class/drm") else { return DisplayInfo::default(); };
+    let mut connected = 0;
+    let mut resolution = String::new();
+    for entry in entries.filter_map(Result::ok) {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !name.starts_with("card") || !name.contains('-') { continue; }
+        let base = entry.path();
+        if read_path(&base.join("status")) != "connected" { continue; }
+        connected += 1;
+        if resolution.is_empty() {
+            resolution = read_path(&base.join("modes")).lines().next().unwrap_or_default().to_owned();
+        }
+    }
+    DisplayInfo { connected, resolution }
+}
+
+fn read_network() -> NetworkInfo {
+    let Ok(entries) = fs::read_dir("/sys/class/net") else { return NetworkInfo::default(); };
+    let mut result = NetworkInfo::default();
+    for entry in entries.filter_map(Result::ok) {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name == "lo" { continue; }
+        result.interfaces += 1;
+        if entry.path().join("wireless").exists() { result.wireless += 1; }
+        if read_path(&entry.path().join("operstate")) == "up" { result.up += 1; }
+    }
+    result
+}
+
 pub struct SystemInfo {
     pub user: String,
     pub hostname: String,
@@ -70,6 +150,9 @@ pub struct SystemInfo {
     pub swap: SwapInfo,
     pub battery: BatteryInfo,
     pub disk: DiskInfo,
+    pub gpu: GpuInfo,
+    pub display: DisplayInfo,
+    pub network: NetworkInfo,
 }
 
 fn read(path: &str) -> String {
@@ -404,6 +487,9 @@ pub fn collect() -> SystemInfo {
         swap,
         battery: read_battery(),
         disk: read_disk(),
+        gpu: read_gpu(),
+        display: read_display(),
+        network: read_network(),
     }
 }
 
@@ -497,7 +583,27 @@ pub fn battery(b: &BatteryInfo) -> String {
     format!("{percent:.0}% ({state})")
 }
 
-pub fn shell(shell: &str, version: &str) -> String {
+pub fn gpu(g: &GpuInfo) -> String {
+    match (g.name.is_empty(), g.driver.is_empty()) {
+        (true, true) => "unknown".into(),
+        (false, true) => g.name.clone(),
+        (true, false) => g.driver.clone(),
+        (false, false) => format!("{} ({})", g.name, g.driver),
+    }
+}
+
+pub fn display(d: &DisplayInfo) -> String {
+    if d.connected == 0 { return "none".into(); }
+    if d.resolution.is_empty() { return format!("{} connected", d.connected); }
+    format!("{} ({} connected)", d.resolution, d.connected)
+}
+
+pub fn network(n: &NetworkInfo) -> String {
+    if n.interfaces == 0 { return "none".into(); }
+    format!("{} up / {} interfaces ({} wireless)", n.up, n.interfaces, n.wireless)
+}
+
+pub fn shell(shell: &str, version: &str) {
     let name = Path::new(shell)
         .file_name()
         .and_then(|x| x.to_str())
@@ -568,8 +674,8 @@ mod tests {
 
     #[test]
     fn os_release_quotes_and_escapes_are_parsed() {
-        assert_eq!(parse_os_release_value(""CachyOS 2026""), "CachyOS 2026");
+        assert_eq!(parse_os_release_value("\"CachyOS 2026\""), "CachyOS 2026");
         assert_eq!(parse_os_release_value("'CachyOS'"), "CachyOS");
-        assert_eq!(parse_os_release_value(""A\\\"B""), "A"B");
+        assert_eq!(parse_os_release_value("\"A\\\\\\\"B\""), "A\"B");
     }
 }
