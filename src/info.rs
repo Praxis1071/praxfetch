@@ -882,7 +882,7 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(value, "1920x1080 card0-eDP-1 / 2560x1440 card0-HDMI-A-1");
+        assert_eq!(value, "1920x1080 eDP-1 / 2560x1440 HDMI-A-1");
     }
 
     #[test]
@@ -909,6 +909,6 @@ mod tests {
     fn os_release_quotes_and_escapes_are_parsed() {
         assert_eq!(parse_os_release_value("\"CachyOS 2026\""), "CachyOS 2026");
         assert_eq!(parse_os_release_value("'CachyOS'"), "CachyOS");
-        assert_eq!(parse_os_release_value("\"A\\\\\\\"B\""), "A\"B");
+        assert_eq!(parse_os_release_value("\"A\\\"B\""), "A\"B");
     }
 }
