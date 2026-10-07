@@ -167,8 +167,13 @@ fn read_display() -> DisplayInfo {
             .unwrap_or_default()
             .to_owned();
 
+        let connector = name
+            .split_once('-')
+            .map(|(_, connector)| connector.to_owned())
+            .unwrap_or(name);
+
         devices.push(DisplayDevice {
-            connector: name,
+            connector,
             resolution,
         });
     }
@@ -747,12 +752,9 @@ pub fn network(n: &NetworkInfo) -> String {
         return "none".into();
     }
 
-    let physical = if n.physical == 1 { "physical" } else { "physical" };
-    let virtuals = if n.virtual_interfaces == 1 { "virtual" } else { "virtual" };
-
     format!(
-        "{} up / {} interfaces ({} wireless, {} {}, {} {})",
-        n.up, n.interfaces, n.wireless, n.physical, physical, n.virtual_interfaces, virtuals
+        "{} up / {} interfaces ({} wireless, {} physical, {} virtual)",
+        n.up, n.interfaces, n.wireless, n.physical, n.virtual_interfaces
     )
 }
 
@@ -850,11 +852,11 @@ mod tests {
         let value = display(&DisplayInfo {
             devices: vec![
                 DisplayDevice {
-                    connector: "card0-eDP-1".into(),
+                    connector: "eDP-1".into(),
                     resolution: "1920x1080".into(),
                 },
                 DisplayDevice {
-                    connector: "card0-HDMI-A-1".into(),
+                    connector: "HDMI-A-1".into(),
                     resolution: "2560x1440".into(),
                 },
             ],
