@@ -53,6 +53,11 @@ pub struct DiskInfo {
 
 #[derive(Default)]
 pub struct GpuInfo {
+    pub devices: Vec<GpuDevice>,
+}
+
+#[derive(Default)]
+pub struct GpuDevice {
     pub name: String,
     pub driver: String,
 }
@@ -76,29 +81,41 @@ fn read_path(path: &Path) -> String {
 
 fn read_gpu() -> GpuInfo {
     let Ok(entries) = fs::read_dir("/sys/class/drm") else { return GpuInfo::default(); };
+    let mut devices = Vec::new();
+
     for entry in entries.filter_map(Result::ok) {
         let name = entry.file_name().to_string_lossy().into_owned();
         if !name.starts_with("card") || name.contains('-') { continue; }
+
         let device = entry.path().join("device");
         let mut gpu_name = ["product_name", "product", "name"]
             .iter()
             .map(|key| read_path(&device.join(key)))
             .find(|value| !value.is_empty())
             .unwrap_or_default();
+
         let driver = fs::read_link(device.join("driver"))
             .ok()
             .and_then(|p| p.file_name().map(|v| v.to_string_lossy().into_owned()))
             .unwrap_or_default();
+
         if gpu_name.is_empty() {
             let vendor = read_path(&device.join("vendor"));
             let device_id = read_path(&device.join("device"));
-            if !vendor.is_empty() && !device_id.is_empty() { gpu_name = format!("{vendor}:{device_id}"); }
+            if !vendor.is_empty() && !device_id.is_empty() {
+                gpu_name = format!("{vendor}:{device_id}");
+            }
         }
+
         if !gpu_name.is_empty() || !driver.is_empty() {
-            return GpuInfo { name: if gpu_name.is_empty() { "unknown".into() } else { gpu_name }, driver };
+            devices.push(GpuDevice {
+                name: if gpu_name.is_empty() { "unknown".into() } else { gpu_name },
+                driver,
+            });
         }
     }
-    GpuInfo::default()
+
+    GpuInfo { devices }
 }
 
 fn read_display() -> DisplayInfo {
@@ -394,8 +411,10 @@ fn read_battery() -> BatteryInfo {
         return BatteryInfo::default();
     };
 
-    let mut count = 0u32;
-    let mut percent_sum = 0.0f32;
+    let mut weighted_percent = 0.0f32;
+    let mut total_weight = 0.0f32;
+    let mut fallback_sum = 0.0f32;
+    let mut fallback_count = 0u32;
     let mut any_charging = false;
     let mut any_discharging = false;
 
@@ -406,13 +425,29 @@ fn read_battery() -> BatteryInfo {
         }
 
         let base = entry.path();
-        if let Some(percent) = fs::read_to_string(base.join("capacity"))
+        let percent = fs::read_to_string(base.join("capacity"))
             .ok()
             .and_then(|v| v.trim().parse::<f32>().ok())
-            .filter(|v| (0.0..=100.0).contains(v))
-        {
-            percent_sum += percent;
-            count += 1;
+            .filter(|v| (0.0..=100.0).contains(v));
+
+        if let Some(percent) = percent {
+            let full = ["energy_full", "charge_full"]
+                .iter()
+                .filter_map(|key| {
+                    fs::read_to_string(base.join(key))
+                        .ok()
+                        .and_then(|v| v.trim().parse::<f32>().ok())
+                        .filter(|v| *v > 0.0)
+                })
+                .next();
+
+            if let Some(weight) = full {
+                weighted_percent += percent * weight;
+                total_weight += weight;
+            } else {
+                fallback_sum += percent;
+                fallback_count += 1;
+            }
         }
 
         match fs::read_to_string(base.join("status"))
@@ -426,9 +461,23 @@ fn read_battery() -> BatteryInfo {
         }
     }
 
-    if count == 0 {
+    let percent = if total_weight > 0.0 {
+        let weighted = weighted_percent / total_weight;
+        if fallback_count > 0 {
+            let fallback = fallback_sum / fallback_count as f32;
+            Some((weighted + fallback) / 2.0)
+        } else {
+            Some(weighted)
+        }
+    } else if fallback_count > 0 {
+        Some(fallback_sum / fallback_count as f32)
+    } else {
+        None
+    };
+
+    let Some(percent) = percent else {
         return BatteryInfo::default();
-    }
+    };
 
     let charging = if any_charging {
         Some(true)
@@ -438,10 +487,7 @@ fn read_battery() -> BatteryInfo {
         None
     };
 
-    BatteryInfo {
-        percent: Some(percent_sum / count as f32),
-        charging,
-    }
+    BatteryInfo { percent: Some(percent), charging }
 }
 
 fn read_disk() -> DiskInfo {
@@ -605,12 +651,20 @@ pub fn battery(b: &BatteryInfo) -> String {
 }
 
 pub fn gpu(g: &GpuInfo) -> String {
-    match (g.name.is_empty(), g.driver.is_empty()) {
-        (true, true) => "unknown".into(),
-        (false, true) => g.name.clone(),
-        (true, false) => g.driver.clone(),
-        (false, false) => format!("{} ({})", g.name, g.driver),
+    if g.devices.is_empty() {
+        return "unknown".into();
     }
+
+    g.devices
+        .iter()
+        .map(|device| match (device.name.is_empty(), device.driver.is_empty()) {
+            (true, true) => "unknown".to_owned(),
+            (false, true) => device.name.clone(),
+            (true, false) => device.driver.clone(),
+            (false, false) => format!("{} ({})", device.name, device.driver),
+        })
+        .collect::<Vec<_>>()
+        .join(" / ")
 }
 
 pub fn display(d: &DisplayInfo) -> String {
