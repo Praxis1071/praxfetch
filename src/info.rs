@@ -28,9 +28,28 @@ pub struct MemoryInfo {
 }
 
 #[derive(Default)]
+pub struct SwapInfo {
+    pub total_kb: u64,
+    pub free_kb: u64,
+}
+
+#[derive(Default)]
 pub struct PackageInfo {
     pub manager: String,
     pub count: Option<usize>,
+}
+
+#[derive(Default)]
+pub struct BatteryInfo {
+    pub name: String,
+    pub percent: Option<f32>,
+    pub charging: Option<bool>,
+}
+
+#[derive(Default)]
+pub struct DiskInfo {
+    pub total_bytes: u64,
+    pub available_bytes: u64,
 }
 
 pub struct SystemInfo {
@@ -40,6 +59,7 @@ pub struct SystemInfo {
     pub host: HostInfo,
     pub kernel: String,
     pub uptime: f64,
+    pub load_avg: Option<(f64, f64, f64)>,
     pub packages: PackageInfo,
     pub shell: String,
     pub shell_version: String,
@@ -47,6 +67,9 @@ pub struct SystemInfo {
     pub terminal: String,
     pub cpu: CpuInfo,
     pub memory: MemoryInfo,
+    pub swap: SwapInfo,
+    pub battery: BatteryInfo,
+    pub disk: DiskInfo,
 }
 
 fn read(path: &str) -> String {
@@ -98,21 +121,17 @@ fn parse_os_release_value(value: &str) -> String {
 
 fn unescape_os_release(value: &str) -> String {
     let mut output = String::with_capacity(value.len());
-    let mut escaped = false;
+    let mut chars = value.chars();
 
-    for ch in value.chars() {
-        if escaped {
-            output.push(ch);
-            escaped = false;
-        } else if ch == '\\' {
-            escaped = true;
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next() {
+                Some(next) => output.push(next),
+                None => output.push('\\'),
+            }
         } else {
             output.push(ch);
         }
-    }
-
-    if escaped {
-        output.push('\\');
     }
 
     output
@@ -202,6 +221,43 @@ fn read_memory() -> MemoryInfo {
     }
 }
 
+fn read_swap() -> SwapInfo {
+    let text = fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    let mut total = 0;
+    let mut free = 0;
+
+    for line in text.lines() {
+        if let Some(v) = line.strip_prefix("SwapTotal:") {
+            total = v
+                .split_whitespace()
+                .next()
+                .and_then(|x| x.parse().ok())
+                .unwrap_or(0);
+        } else if let Some(v) = line.strip_prefix("SwapFree:") {
+            free = v
+                .split_whitespace()
+                .next()
+                .and_then(|x| x.parse().ok())
+                .unwrap_or(0);
+        }
+    }
+
+    SwapInfo {
+        total_kb: total,
+        free_kb: free,
+    }
+}
+
+fn read_load_avg() -> Option<(f64, f64, f64)> {
+    let text = read("/proc/loadavg");
+    let mut values = text
+        .split_whitespace()
+        .take(3)
+        .filter_map(|value| value.parse::<f64>().ok());
+
+    Some((values.next()?, values.next()?, values.next()?))
+}
+
 fn read_packages() -> PackageInfo {
     if let Ok(entries) = fs::read_dir("/var/lib/pacman/local") {
         return PackageInfo {
@@ -258,6 +314,59 @@ fn read_packages() -> PackageInfo {
     }
 }
 
+fn read_battery() -> BatteryInfo {
+    let Ok(entries) = fs::read_dir("/sys/class/power_supply") else {
+        return BatteryInfo::default();
+    };
+
+    for entry in entries.filter_map(Result::ok) {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !name.starts_with("BAT") {
+            continue;
+        }
+
+        let base = entry.path();
+        let capacity = fs::read_to_string(base.join("capacity"))
+            .ok()
+            .and_then(|v| v.trim().parse::<f32>().ok())
+            .filter(|v| (0.0..=100.0).contains(v));
+
+        let status = fs::read_to_string(base.join("status"))
+            .ok()
+            .map(|v| v.trim().to_ascii_lowercase());
+
+        let charging = status.as_deref().map(|v| v == "charging" || v == "full");
+
+        return BatteryInfo {
+            name,
+            percent: capacity,
+            charging,
+        };
+    }
+
+    BatteryInfo::default()
+}
+
+fn read_disk() -> DiskInfo {
+    let path = std::ffi::CString::new("/").expect("static path contains no NUL");
+    let mut stat = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+
+    let result = unsafe { libc::statvfs(path.as_ptr(), stat.as_mut_ptr()) };
+    if result != 0 {
+        return DiskInfo::default();
+    }
+
+    let stat = unsafe { stat.assume_init() };
+    let block_size = stat.f_frsize as u64;
+    let total = (stat.f_blocks as u64).saturating_mul(block_size);
+    let available = (stat.f_bavail as u64).saturating_mul(block_size);
+
+    DiskInfo {
+        total_bytes: total,
+        available_bytes: available.min(total),
+    }
+}
+
 pub fn collect() -> SystemInfo {
     let shell = env::var("SHELL").unwrap_or_else(|_| "unknown".into());
     let shell_version = env::var("BASH_VERSION")
@@ -289,6 +398,7 @@ pub fn collect() -> SystemInfo {
             .next()
             .and_then(|x| x.parse().ok())
             .unwrap_or(0.0),
+        load_avg: read_load_avg(),
         packages: read_packages(),
         shell,
         shell_version,
@@ -296,6 +406,9 @@ pub fn collect() -> SystemInfo {
         terminal,
         cpu: read_cpu(),
         memory: read_memory(),
+        swap: read_swap(),
+        battery: read_battery(),
+        disk: read_disk(),
     }
 }
 
@@ -345,6 +458,50 @@ pub fn memory(m: &MemoryInfo) -> String {
     )
 }
 
+pub fn swap(s: &SwapInfo) -> String {
+    if s.total_kb == 0 {
+        return "none".into();
+    }
+
+    let free = s.free_kb.min(s.total_kb);
+    let used = s.total_kb.saturating_sub(free);
+
+    format!(
+        "{:.1} GiB / {:.1} GiB ({:.0}%)",
+        used as f64 / 1_048_576.0,
+        s.total_kb as f64 / 1_048_576.0,
+        used as f64 / s.total_kb as f64 * 100.0
+    )
+}
+
+pub fn disk(d: &DiskInfo) -> String {
+    if d.total_bytes == 0 {
+        return "unknown".into();
+    }
+
+    let used = d.total_bytes.saturating_sub(d.available_bytes);
+    format!(
+        "{:.1} GiB / {:.1} GiB ({:.0}%)",
+        used as f64 / 1_073_741_824.0,
+        d.total_bytes as f64 / 1_073_741_824.0,
+        used as f64 / d.total_bytes as f64 * 100.0
+    )
+}
+
+pub fn battery(b: &BatteryInfo) -> String {
+    let Some(percent) = b.percent else {
+        return "none".into();
+    };
+
+    let state = match b.charging {
+        Some(true) => "charging",
+        Some(false) => "discharging",
+        None => "unknown",
+    };
+
+    format!("{percent:.0}% ({state})")
+}
+
 pub fn shell(shell: &str, version: &str) -> String {
     let name = Path::new(shell)
         .file_name()
@@ -387,9 +544,37 @@ mod tests {
     }
 
     #[test]
+    fn swap_handles_missing_and_clamped_values() {
+        assert_eq!(swap(&SwapInfo { total_kb: 0, free_kb: 0 }), "none");
+        assert_eq!(
+            swap(&SwapInfo {
+                total_kb: 1_048_576,
+                free_kb: 2_000_000,
+            }),
+            "0.0 GiB / 1.0 GiB (0%)"
+        );
+    }
+
+    #[test]
+    fn disk_handles_empty_data() {
+        assert_eq!(
+            disk(&DiskInfo {
+                total_bytes: 0,
+                available_bytes: 0
+            }),
+            "unknown"
+        );
+    }
+
+    #[test]
+    fn battery_without_hardware_is_none() {
+        assert_eq!(battery(&BatteryInfo::default()), "none");
+    }
+
+    #[test]
     fn os_release_quotes_and_escapes_are_parsed() {
-        assert_eq!(parse_os_release_value("\"CachyOS 2026\""), "CachyOS 2026");
+        assert_eq!(parse_os_release_value(""CachyOS 2026""), "CachyOS 2026");
         assert_eq!(parse_os_release_value("'CachyOS'"), "CachyOS");
-        assert_eq!(parse_os_release_value("\"A\\\\\\\"B\""), "A\"B");
+        assert_eq!(parse_os_release_value(""A\\\"B""), "A"B");
     }
 }
