@@ -603,7 +603,7 @@ pub fn network(n: &NetworkInfo) -> String {
     format!("{} up / {} interfaces ({} wireless)", n.up, n.interfaces, n.wireless)
 }
 
-pub fn shell(shell: &str, version: &str) {
+pub fn shell(shell: &str, version: &str) -> String {
     let name = Path::new(shell)
         .file_name()
         .and_then(|x| x.to_str())
