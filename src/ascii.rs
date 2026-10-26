@@ -102,18 +102,46 @@ pub fn logo(os: &OsInfo) -> Vec<String> {
 pub fn logo_width(lines: &[String]) -> usize {
     lines
         .iter()
-        .map(|line| line.chars().count())
+        .map(|line| visible_width(line))
         .max()
         .unwrap_or(0)
 }
 
 /// Pad a logo line to an exact terminal-column width.
 pub fn pad_logo_line(line: &str, width: usize) -> String {
-    let current = line.chars().count();
+    let current = visible_width(line);
     if current >= width {
         return line.to_owned();
     }
     format!("{}{}", line, " ".repeat(width - current))
+}
+
+fn visible_width(value: &str) -> usize {
+    let chars: Vec<char> = value.chars().collect();
+    let mut width = 0usize;
+    let mut index = 0;
+
+    while index < chars.len() {
+        let ch = chars[index];
+
+        if ch == '\u{1b}' && index + 1 < chars.len() && chars[index + 1] == '[' {
+            index += 2;
+            while index < chars.len() {
+                let next = chars[index];
+                if next.is_ascii_alphabetic() {
+                    index += 1;
+                    break;
+                }
+                index += 1;
+            }
+            continue;
+        }
+
+        width += 1;
+        index += 1;
+    }
+
+    width
 }
 
 fn distro_family<'a>(id: &'a str, like: &'a str) -> &'a str {
@@ -187,8 +215,8 @@ mod tests {
     }
 
     #[test]
-    fn logo_width_uses_character_columns() {
-        let lines = vec!["abc".to_owned(), "123456".to_owned()];
+    fn logo_width_uses_visible_columns() {
+        let lines = vec!["abc".to_owned(), "\x1b[31m123456\x1b[0m".to_owned()];
         assert_eq!(logo_width(&lines), 6);
     }
 
@@ -196,5 +224,7 @@ mod tests {
     fn logo_padding_is_exact() {
         assert_eq!(pad_logo_line("abc", 6), "abc   ");
         assert_eq!(pad_logo_line("abcdef", 3), "abcdef");
+        let ansi = "\x1b[31mA\x1b[0m";
+        assert_eq!(visible_width(&pad_logo_line(ansi, 3)), 3);
     }
 }
