@@ -1519,10 +1519,7 @@ mod tests {
         );
         assert_eq!(weighted_frequency_mhz(&[(3_000_000, 0)]), None);
         assert_eq!(weighted_frequency_mhz(&[]), None);
-        assert_eq!(
-            weighted_frequency_mhz(&[(u64::MAX, u128::MAX)]),
-            None
-        );
+        assert_eq!(weighted_frequency_mhz(&[(u64::MAX, u128::MAX)]), None);
     }
 
     #[test]
