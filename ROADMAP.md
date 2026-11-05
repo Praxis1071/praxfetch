@@ -3,7 +3,7 @@
 > **Purpose:** Build praxfetch into a dependable, fast, maintainable Linux system-information CLI without sacrificing its defining constraints.
 >
 > **Last reviewed:** 2026-11-05  
-> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 32 automated tests passing in GitHub Actions run [#91](https://github.com/Praxis1071/praxfetch/actions/runs/41987204849) before the current audit follow-up.
+> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 34 automated tests passing in GitHub Actions run [#98](https://github.com/Praxis1071/praxfetch/actions/runs/41987584011).
 
 This is the project's source of truth for development priorities. Keep it updated as work lands. A checkbox is only marked complete after the implementation is present, relevant tests pass, documentation is updated, and the latest applicable CI run succeeds.
 
@@ -59,7 +59,7 @@ praxfetch should be a small, trustworthy, Linux-native alternative in the fastfe
 - [x] README documents the runtime constraints, build commands, current modules, and the 5 ms goal as a target rather than a guarantee.
 - [x] GitHub Actions checks formatting, compilation, tests, Clippy warnings, and release compilation.
 - [x] Automated tests cover important parsing and edge cases, including OS metadata, CPU topology/frequency, CPU temperature selection, PCI IDs, mountinfo, battery aggregation, and formatting.
-- [x] Latest verified baseline before the current audit follow-up: 32 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #91](https://github.com/Praxis1071/praxfetch/actions/runs/41987204849).
+- [x] Latest verified baseline: 34 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #98](https://github.com/Praxis1071/praxfetch/actions/runs/41987584011).
 
 ## 3. Prioritized implementation roadmap
 
@@ -85,7 +85,8 @@ The phases are ordered by dependency and risk, not by how visually impressive a 
 - [x] Ignore hwmon temperature channels marked faulty and include the documented Intel PECI CPU temperature driver.
 - [x] Do not present AMD `Tctl`-only control readings as physical CPU die temperature; prefer physical die/package readings when available.
 - [x] Remove the DMI computer product name as a fallback CPU model, avoiding laptop/desktop model names being mislabeled as processors.
-- [x] Add fixture-based `/proc/meminfo` parsing tests and regression tests for missing values, hwmon faults, temperature boundaries, and display connector-only output.
+- [x] Add fixture-based `/proc/meminfo` parsing tests and regression tests for missing values, hwmon faults, temperature boundaries, display connector-only output, and CPUFreq policy weighting/overflow.
+- [x] Weight CPUFreq policy readings by online CPUs, ignore policies with no online CPUs, and use checked arithmetic for aggregation.
 - [x] Add a CI source audit for common runtime subprocess and network APIs.
 
 **Exit criteria:** no known incorrect labels or silent parser panics; core detector behavior is covered by deterministic tests; runtime invariants are demonstrably preserved.
