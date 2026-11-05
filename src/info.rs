@@ -1,7 +1,9 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     env, fs,
-    path::Path,
+    ffi::CString,
+    os::unix::ffi::OsStrExt,
+    path::{Path, PathBuf},
 };
 
 #[derive(Default)]
@@ -66,6 +68,13 @@ pub enum BatteryStatus {
 pub struct DiskInfo {
     pub total_bytes: u64,
     pub available_bytes: u64,
+    pub filesystems: usize,
+}
+
+struct MountEntry {
+    device: String,
+    mount_point: PathBuf,
+    fs_type: String,
 }
 
 #[derive(Default)]
@@ -895,24 +904,159 @@ fn weighted_battery_average(
     Some(weighted_percent / total_weight)
 }
 
-fn read_disk() -> DiskInfo {
-    let path = std::ffi::CString::new("/").expect("static path contains no NUL");
+fn decode_mount_field(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        if bytes[index] == b'\\' {
+            if index + 3 >= bytes.len()
+                || !bytes[index + 1..index + 4]
+                    .iter()
+                    .all(|byte| (b'0'..=b'7').contains(byte))
+            {
+                return None;
+            }
+
+            let octal = (bytes[index + 1] - b'0') * 64
+                + (bytes[index + 2] - b'0') * 8
+                + (bytes[index + 3] - b'0');
+            decoded.push(octal);
+            index += 4;
+        } else {
+            decoded.push(bytes[index]);
+            index += 1;
+        }
+    }
+
+    String::from_utf8(decoded).ok()
+}
+
+fn parse_mountinfo(text: &str) -> Vec<MountEntry> {
+    let mut mounts = Vec::new();
+
+    for line in text.lines() {
+        let fields: Vec<_> = line.split_whitespace().collect();
+        let Some(separator) = fields.iter().position(|field| *field == "-") else {
+            continue;
+        };
+
+        if separator < 6 || fields.len() < separator + 4 {
+            continue;
+        }
+
+        let device = fields[2];
+        if !device.contains(':') {
+            continue;
+        }
+
+        let Some(mount_point) = decode_mount_field(fields[4]) else {
+            continue;
+        };
+        let fs_type = fields[separator + 1];
+
+        if is_pseudo_filesystem(fs_type) {
+            continue;
+        }
+
+        mounts.push(MountEntry {
+            device: device.to_owned(),
+            mount_point: PathBuf::from(mount_point),
+            fs_type: fs_type.to_owned(),
+        });
+    }
+
+    mounts
+}
+
+fn is_pseudo_filesystem(fs_type: &str) -> bool {
+    matches!(
+        fs_type,
+        "proc"
+            | "sysfs"
+            | "devtmpfs"
+            | "devpts"
+            | "tmpfs"
+            | "ramfs"
+            | "cgroup"
+            | "cgroup2"
+            | "mqueue"
+            | "securityfs"
+            | "debugfs"
+            | "tracefs"
+            | "configfs"
+            | "pstore"
+            | "efivarfs"
+            | "bpf"
+            | "rpc_pipefs"
+            | "autofs"
+            | "nsfs"
+            | "fusectl"
+    )
+}
+
+fn filesystem_capacity(path: &Path) -> Option<(u64, u64)> {
+    let path = CString::new(path.as_os_str().as_bytes()).ok()?;
     let mut stat = std::mem::MaybeUninit::<libc::statvfs>::zeroed();
 
     let result = unsafe { libc::statvfs(path.as_ptr(), stat.as_mut_ptr()) };
     if result != 0 {
-        return DiskInfo::default();
+        return None;
     }
 
     let stat = unsafe { stat.assume_init() };
-    let block_size = stat.f_frsize;
-    let total = stat.f_blocks.saturating_mul(block_size);
-    let available = stat.f_bavail.saturating_mul(block_size);
+    let block_size = stat.f_frsize as u64;
+    let total = (stat.f_blocks as u64).checked_mul(block_size)?;
+    let available = (stat.f_bavail as u64)
+        .checked_mul(block_size)?
+        .min(total);
 
-    DiskInfo {
-        total_bytes: total,
-        available_bytes: available.min(total),
+    (total > 0).then_some((total, available))
+}
+
+fn read_disk() -> DiskInfo {
+    let Ok(mountinfo) = fs::read_to_string("/proc/self/mountinfo") else {
+        return filesystem_capacity(Path::new("/"))
+            .map(|(total_bytes, available_bytes)| DiskInfo {
+                total_bytes,
+                available_bytes,
+                filesystems: 1,
+            })
+            .unwrap_or_default();
+    };
+
+    let mut seen_devices = BTreeSet::new();
+    let mut result = DiskInfo::default();
+
+    for mount in parse_mountinfo(&mountinfo) {
+        // Bind mounts and multiple views of the same filesystem share the
+        // same major:minor device number; count their capacity only once.
+        if !seen_devices.insert(mount.device) {
+            continue;
+        }
+
+        let Some((total, available)) = filesystem_capacity(&mount.mount_point) else {
+            continue;
+        };
+
+        result.total_bytes = result.total_bytes.saturating_add(total);
+        result.available_bytes = result.available_bytes.saturating_add(available);
+        result.filesystems += 1;
     }
+
+    if result.filesystems == 0 {
+        return filesystem_capacity(Path::new("/"))
+            .map(|(total_bytes, available_bytes)| DiskInfo {
+                total_bytes,
+                available_bytes,
+                filesystems: 1,
+            })
+            .unwrap_or_default();
+    }
+
+    result.available_bytes = result.available_bytes.min(result.total_bytes);
+    result
 }
 
 pub fn collect() -> SystemInfo {
@@ -1213,11 +1357,44 @@ mod tests {
     }
 
     #[test]
+    fn mountinfo_parser_decodes_escaped_paths_and_skips_pseudo_filesystems() {
+        let mountinfo = "\
+36 25 8:1 / / rw,relatime - ext4 /dev/sda1 rw\n\
+37 25 0:32 / /run rw,nosuid - tmpfs tmpfs rw\n\
+38 25 8:2 / /mnt/My\\040Disk rw,relatime shared:1 - ext4 /dev/sda2 rw\n\
+39 25 0:5 / /dev rw,nosuid - devtmpfs devtmpfs rw\n";
+        let mounts = parse_mountinfo(mountinfo);
+        assert_eq!(mounts.len(), 2);
+        assert_eq!(mounts[0].device, "8:1");
+        assert_eq!(mounts[0].fs_type, "ext4");
+        assert_eq!(mounts[1].mount_point, PathBuf::from("/mnt/My Disk"));
+    }
+
+    #[test]
+    fn mountinfo_parser_ignores_malformed_lines_and_unknown_escapes() {
+        let mountinfo = "\
+not a valid mount line\n\
+40 25 8:3 / /mnt/bad\\999 rw - ext4 /dev/sda3 rw\n";
+        assert!(parse_mountinfo(mountinfo).is_empty());
+    }
+
+    #[test]
+    fn pseudo_filesystem_filter_keeps_real_and_overlay_filesystems() {
+        assert!(is_pseudo_filesystem("proc"));
+        assert!(is_pseudo_filesystem("tmpfs"));
+        assert!(!is_pseudo_filesystem("ext4"));
+        assert!(!is_pseudo_filesystem("btrfs"));
+        assert!(!is_pseudo_filesystem("overlay"));
+        assert!(!is_pseudo_filesystem("fuseblk"));
+    }
+
+    #[test]
     fn disk_handles_empty_data() {
         assert_eq!(
             disk(&DiskInfo {
                 total_bytes: 0,
-                available_bytes: 0
+                available_bytes: 0,
+                filesystems: 0,
             }),
             "unknown"
         );
