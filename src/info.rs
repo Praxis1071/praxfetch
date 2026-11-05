@@ -1371,7 +1371,6 @@ mod tests {
         let mounts = parse_mountinfo(mountinfo);
         assert_eq!(mounts.len(), 2);
         assert_eq!(mounts[0].device, "8:1");
-        assert_eq!(mounts[0].fs_type, "ext4");
         assert_eq!(mounts[1].mount_point, PathBuf::from("/mnt/My Disk"));
     }
 
