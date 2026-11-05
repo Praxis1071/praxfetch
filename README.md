@@ -26,7 +26,7 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **Memory** — /proc/meminfo
 - **Swap** — /proc/meminfo
 - **Root Disk** — POSIX statvfs("/") with no subprocess
-- **Battery** — /sys/class/power_supply/BAT* when available, with capacity-aware multi-battery aggregation
+- **Battery** — /sys/class/power_supply/BAT* when available; preserves charging, discharging, full, and not-charging states, and avoids mixing incompatible energy/charge units when aggregating multiple batteries
 - **GPU** — Linux DRM/sysfs card devices and kernel driver, including multiple GPUs and human-readable PCI-vendor fallbacks
 - **Display** — all connected DRM connectors and their reported native modes
 - **Network** — interface count, operational link state, and wireless interface count
