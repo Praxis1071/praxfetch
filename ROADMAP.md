@@ -3,7 +3,7 @@
 > **Purpose:** Build praxfetch into a dependable, fast, maintainable Linux system-information CLI without sacrificing its defining constraints.
 >
 > **Last reviewed:** 2026-11-05  
-> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 35 automated tests passing in GitHub Actions run [#106](https://github.com/Praxis1071/praxfetch/actions/runs/41988197420).
+> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 35 automated tests passing in GitHub Actions run [#108](https://github.com/Praxis1071/praxfetch/actions/runs/41988308975).
 
 This is the project's source of truth for development priorities. Keep it updated as work lands. A checkbox is only marked complete after the implementation is present, relevant tests pass, documentation is updated, and the latest applicable CI run succeeds.
 
@@ -43,13 +43,13 @@ praxfetch should be a small, trustworthy, Linux-native alternative in the fastfe
 - [x] OS identification from `/etc/os-release`, with `/usr/lib/os-release` fallback.
 - [x] Host, kernel, uptime, load average, shell, desktop/window manager, and terminal information.
 - [x] CPU model, logical thread count, and physical-core topology detection.
-- [x] CPU frequency detection through CPUFreq policy data, preferring hardware-reported values and using `scaling_cur_freq` only as a fallback.
-- [x] CPU temperature detection using CPU-specific hwmon sensors with a matching thermal-zone fallback.
+- [x] CPU frequency detection through CPUFreq policies, weighted by online CPUs; hardware-reported values are preferred and `scaling_cur_freq` is a last resort.
+- [x] CPU temperature detection using CPU-specific hwmon sensors, ignoring faulted channels and non-physical Tctl-only readings, with a matching thermal-zone fallback.
 - [x] Memory and swap information from `/proc/meminfo`.
-- [x] Mounted-filesystem capacity using `/proc/self/mountinfo` and `statvfs()`, with escaped-path parsing, pseudo-filesystem filtering, and bind-mount deduplication.
+- [x] Local mounted-filesystem capacity using `/proc/self/mountinfo` and `statvfs()`, with escaped-path parsing, pseudo/remote/FUSE/overlay filtering, bind-mount deduplication, and no root fallback when mount metadata is unavailable.
 - [x] Battery percentage and charging-state aggregation without mixing incompatible energy/charge units.
 - [x] GPU and driver discovery through DRM/sysfs, with local PCI ID database lookup when available.
-- [x] DRM display connector and resolution discovery.
+- [x] DRM display connector status and name discovery; active resolution is not guessed from the connector's supported-mode list.
 - [x] Network interface, link-state, and wireless-interface discovery.
 - [x] Pacman, dpkg, APK, and RPM database detection; RPM package count remains explicitly unavailable until a reliable native implementation exists.
 
@@ -59,7 +59,7 @@ praxfetch should be a small, trustworthy, Linux-native alternative in the fastfe
 - [x] README documents the runtime constraints, build commands, current modules, and the 5 ms goal as a target rather than a guarantee.
 - [x] GitHub Actions checks formatting, compilation, tests, Clippy warnings, and release compilation.
 - [x] Automated tests cover important parsing and edge cases, including OS metadata, CPU topology/frequency, CPU temperature selection, PCI IDs, mountinfo, battery aggregation, and formatting.
-- [x] Latest verified baseline: 35 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #106](https://github.com/Praxis1071/praxfetch/actions/runs/41988197420).
+- [x] Latest verified baseline: 35 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #108](https://github.com/Praxis1071/praxfetch/actions/runs/41988308975).
 
 ## 3. Prioritized implementation roadmap
 
