@@ -281,7 +281,9 @@ fn read(path: &str) -> String {
 }
 
 fn read_os() -> OsInfo {
-    let text = fs::read_to_string("/etc/os-release").unwrap_or_default();
+    let text = fs::read_to_string("/etc/os-release")
+        .or_else(|_| fs::read_to_string("/usr/lib/os-release"))
+        .unwrap_or_default();
     let mut o = OsInfo::default();
 
     for line in text.lines() {
