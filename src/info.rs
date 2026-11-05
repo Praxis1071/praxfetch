@@ -671,7 +671,9 @@ fn read_cpu_temperature() -> TemperatureInfo {
                 }
 
                 let sensor_prefix = format!("temp{index}");
-                if sensor_has_fault(&read_path(&chip_path.join(format!("{sensor_prefix}_fault")))) {
+                if sensor_has_fault(&read_path(
+                    &chip_path.join(format!("{sensor_prefix}_fault")),
+                )) {
                     continue;
                 }
 
@@ -1503,11 +1505,17 @@ mod tests {
     #[test]
     fn memory_and_swap_do_not_report_missing_values_as_zero_usage() {
         assert_eq!(
-            memory(&MemoryInfo { total_kb: Some(1_048_576), available_kb: None }),
+            memory(&MemoryInfo {
+                total_kb: Some(1_048_576),
+                available_kb: None
+            }),
             "1.0 GiB total (usage unavailable)"
         );
         assert_eq!(
-            swap(&SwapInfo { total_kb: Some(1_048_576), free_kb: None }),
+            swap(&SwapInfo {
+                total_kb: Some(1_048_576),
+                free_kb: None
+            }),
             "1.0 GiB total (usage unavailable)"
         );
         assert_eq!(swap(&SwapInfo::default()), "unknown");
