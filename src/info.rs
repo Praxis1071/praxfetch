@@ -32,6 +32,11 @@ pub struct CpuInfo {
 }
 
 #[derive(Default)]
+pub struct TemperatureInfo {
+    pub cpu_celsius: Option<f32>,
+}
+
+#[derive(Default)]
 pub struct MemoryInfo {
     pub total_kb: u64,
     pub available_kb: u64,
@@ -379,6 +384,7 @@ pub struct SystemInfo {
     pub desktop: String,
     pub terminal: String,
     pub cpu: CpuInfo,
+    pub temperature: TemperatureInfo,
     pub memory: MemoryInfo,
     pub swap: SwapInfo,
     pub battery: BatteryInfo,
@@ -592,6 +598,132 @@ fn read_per_cpu_frequency_mhz() -> Option<u64> {
     }
 
     None
+}
+
+fn parse_temperature_millidegrees(value: &str) -> Option<f32> {
+    let millidegrees = value.trim().parse::<i64>().ok()?;
+    // CPU temperatures below 5°C are not useful in ordinary systems and
+    // this floor also rejects hwmon channels reporting millivolts.
+    if !(5_000..=150_000).contains(&millidegrees) {
+        return None;
+    }
+
+    Some(millidegrees as f32 / 1000.0)
+}
+
+fn is_cpu_hwmon(name: &str) -> bool {
+    let name = name.to_ascii_lowercase();
+    [
+        "coretemp",
+        "k10temp",
+        "zenpower",
+        "cpu_thermal",
+        "x86_pkg_temp",
+    ]
+    .iter()
+    .any(|chip| name.contains(chip))
+}
+
+fn temperature_priority(label: &str) -> u8 {
+    let label = label.to_ascii_lowercase();
+    if label.contains("tdie") {
+        0
+    } else if label.contains("package") {
+        1
+    } else if label.contains("tctl") {
+        2
+    } else if label.contains("cpu") || label.contains("x86_pkg_temp") {
+        3
+    } else {
+        4
+    }
+}
+
+fn choose_cpu_temperature(readings: &[(String, f32)]) -> Option<f32> {
+    let best_priority = readings
+        .iter()
+        .map(|(label, _)| temperature_priority(label))
+        .min()?;
+
+    readings
+        .iter()
+        .filter(|(label, _)| temperature_priority(label) == best_priority)
+        .map(|(_, temperature)| *temperature)
+        .reduce(f32::max)
+}
+
+fn read_cpu_temperature() -> TemperatureInfo {
+    let mut readings = Vec::new();
+
+    if let Ok(chips) = fs::read_dir("/sys/class/hwmon") {
+        for chip in chips.filter_map(Result::ok) {
+            let chip_path = chip.path();
+            let chip_name = read_path(&chip_path.join("name"));
+            if !is_cpu_hwmon(&chip_name) {
+                continue;
+            }
+
+            let Ok(attributes) = fs::read_dir(&chip_path) else {
+                continue;
+            };
+
+            for attribute in attributes.filter_map(Result::ok) {
+                let file_name = attribute.file_name().to_string_lossy().into_owned();
+                let Some(index) = file_name
+                    .strip_prefix("temp")
+                    .and_then(|name| name.strip_suffix("_input"))
+                else {
+                    continue;
+                };
+                if index.is_empty() || !index.bytes().all(|byte| byte.is_ascii_digit()) {
+                    continue;
+                }
+
+                let Some(temperature) =
+                    parse_temperature_millidegrees(&read_path(&attribute.path()))
+                else {
+                    continue;
+                };
+                let label = read_path(&chip_path.join(format!("temp{index}_label")));
+                let label = if label.is_empty() {
+                    format!("{chip_name} temp{index}")
+                } else {
+                    label
+                };
+                readings.push((label, temperature));
+            }
+        }
+    }
+
+    if readings.is_empty() {
+        if let Ok(zones) = fs::read_dir("/sys/class/thermal") {
+            for zone in zones.filter_map(Result::ok) {
+                let name = zone.file_name().to_string_lossy().into_owned();
+                if !name.starts_with("thermal_zone") {
+                    continue;
+                }
+
+                let label = read_path(&zone.path().join("type"));
+                let lower = label.to_ascii_lowercase();
+                if !(lower.contains("cpu")
+                    || lower.contains("package")
+                    || lower.contains("x86_pkg_temp"))
+                {
+                    continue;
+                }
+
+                if let Some(temperature) =
+                    parse_temperature_millidegrees(&read_path(&zone.path().join("temp")))
+                {
+                    readings.push((label, temperature));
+                }
+            }
+        }
+    }
+
+    TemperatureInfo {
+        cpu_celsius: choose_cpu_temperature(&readings),
+    }
 }
 
 fn parse_cpu_list(value: &str) -> Vec<usize> {
@@ -1107,6 +1239,7 @@ pub fn collect() -> SystemInfo {
         desktop,
         terminal,
         cpu: read_cpu(),
+        temperature: read_cpu_temperature(),
         memory,
         swap,
         battery: read_battery(),
@@ -1312,6 +1445,37 @@ mod tests {
     fn pci_ids_are_normalized() {
         assert_eq!(normalize_pci_id("0x10DE"), "10de");
         assert_eq!(normalize_pci_id("8086"), "8086");
+    }
+
+    #[test]
+    fn cpu_temperature_parser_rejects_invalid_and_voltage_like_values() {
+        assert_eq!(parse_temperature_millidegrees("42000"), Some(42.0));
+        assert_eq!(parse_temperature_millidegrees("150001"), None);
+        assert_eq!(parse_temperature_millidegrees("1500"), None);
+        assert_eq!(parse_temperature_millidegrees("not-a-number"), None);
+    }
+
+    #[test]
+    fn cpu_temperature_prefers_die_or_package_over_core_readings() {
+        let readings = vec![
+            ("Core 0".into(), 70.0),
+            ("Core 1".into(), 72.0),
+            ("Package id 0".into(), 65.0),
+            ("Tctl".into(), 68.0),
+        ];
+        assert_eq!(choose_cpu_temperature(&readings), Some(65.0));
+
+        let amd = vec![("Tctl".into(), 80.0), ("Tdie".into(), 72.0)];
+        assert_eq!(choose_cpu_temperature(&amd), Some(72.0));
+    }
+
+    #[test]
+    fn cpu_hwmon_filter_excludes_unrelated_chips() {
+        assert!(is_cpu_hwmon("coretemp"));
+        assert!(is_cpu_hwmon("k10temp"));
+        assert!(is_cpu_hwmon("zenpower"));
+        assert!(!is_cpu_hwmon("amdgpu"));
+        assert!(!is_cpu_hwmon("nvme"));
     }
 
     #[test]
