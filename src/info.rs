@@ -911,10 +911,7 @@ mod tests {
             wireless: 1,
             up: 2,
         });
-        assert_eq!(
-            value,
-            "2 up / 3 interfaces (1 wireless)"
-        );
+        assert_eq!(value, "2 up / 3 interfaces (1 wireless)");
     }
 
     #[test]
