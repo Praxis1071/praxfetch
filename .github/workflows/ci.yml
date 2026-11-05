@@ -27,6 +27,9 @@ jobs:
       - name: Tests
         run: cargo test --all-targets
 
+      - name: Runtime invariant audit
+        run: bash scripts/check-runtime-invariants.sh
+
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
 
