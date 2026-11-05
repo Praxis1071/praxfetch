@@ -1132,7 +1132,7 @@ fn parse_mountinfo(text: &str) -> Vec<MountEntry> {
         };
         let fs_type = fields[separator + 1];
 
-        if is_pseudo_filesystem(fs_type) {
+        if is_pseudo_filesystem(fs_type) || is_nonlocal_or_stacked_filesystem(fs_type) {
             continue;
         }
 
@@ -1143,6 +1143,28 @@ fn parse_mountinfo(text: &str) -> Vec<MountEntry> {
     }
 
     mounts
+}
+
+fn is_nonlocal_or_stacked_filesystem(fs_type: &str) -> bool {
+    matches!(
+        fs_type,
+        "nfs"
+            | "nfs4"
+            | "cifs"
+            | "smb3"
+            | "smbfs"
+            | "ncpfs"
+            | "9p"
+            | "ceph"
+            | "afs"
+            | "coda"
+            | "glusterfs"
+            | "lustre"
+            | "davfs"
+            | "orangefs"
+            | "overlay"
+            | "fuse"
+    ) || fs_type.starts_with("fuse.")
 }
 
 fn is_pseudo_filesystem(fs_type: &str) -> bool {
@@ -1197,13 +1219,7 @@ fn filesystem_capacity(path: &Path) -> Option<(u64, u64)> {
 
 fn read_disk() -> DiskInfo {
     let Ok(mountinfo) = fs::read_to_string("/proc/self/mountinfo") else {
-        return filesystem_capacity(Path::new("/"))
-            .map(|(total_bytes, available_bytes)| DiskInfo {
-                total_bytes,
-                available_bytes,
-                filesystems: 1,
-            })
-            .unwrap_or_default();
+        return DiskInfo::default();
     };
 
     let mut seen_devices = BTreeSet::new();
@@ -1227,13 +1243,7 @@ fn read_disk() -> DiskInfo {
     }
 
     if result.filesystems == 0 {
-        return filesystem_capacity(Path::new("/"))
-            .map(|(total_bytes, available_bytes)| DiskInfo {
-                total_bytes,
-                available_bytes,
-                filesystems: 1,
-            })
-            .unwrap_or_default();
+        return DiskInfo::default();
     }
 
     result.available_bytes = result.available_bytes.min(result.total_bytes);
@@ -1689,6 +1699,20 @@ not a valid mount line\n\
         assert!(!is_pseudo_filesystem("btrfs"));
         assert!(!is_pseudo_filesystem("overlay"));
         assert!(!is_pseudo_filesystem("fuseblk"));
+    }
+
+    #[test]
+    fn storage_filter_excludes_remote_userspace_and_overlay_mounts() {
+        for fs_type in [
+            "nfs", "nfs4", "cifs", "smb3", "9p", "ceph", "afs", "glusterfs",
+            "lustre", "davfs", "orangefs", "fuse", "fuse.sshfs", "fuse.rclone",
+            "overlay",
+        ] {
+            assert!(is_nonlocal_or_stacked_filesystem(fs_type), "{fs_type}");
+        }
+        assert!(!is_nonlocal_or_stacked_filesystem("ext4"));
+        assert!(!is_nonlocal_or_stacked_filesystem("btrfs"));
+        assert!(!is_nonlocal_or_stacked_filesystem("fuseblk"));
     }
 
     #[test]
