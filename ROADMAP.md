@@ -3,7 +3,7 @@
 > **Purpose:** Build praxfetch into a dependable, fast, maintainable Linux system-information CLI without sacrificing its defining constraints.
 >
 > **Last reviewed:** 2026-11-05  
-> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 37 automated tests passing in GitHub Actions run [#110](https://github.com/Praxis1071/praxfetch/actions/runs/41988481981).
+> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 37 automated tests passing in GitHub Actions run [#112](https://github.com/Praxis1071/praxfetch/actions/runs/41988687679).
 
 This is the project's source of truth for development priorities. Keep it updated as work lands. A checkbox is only marked complete after the implementation is present, relevant tests pass, documentation is updated, and the latest applicable CI run succeeds.
 
@@ -59,7 +59,7 @@ praxfetch should be a small, trustworthy, Linux-native alternative in the fastfe
 - [x] README documents the runtime constraints, build commands, current modules, and the 5 ms goal as a target rather than a guarantee.
 - [x] GitHub Actions checks formatting, compilation, tests, Clippy warnings, and release compilation.
 - [x] Automated tests cover important parsing and edge cases, including OS metadata, CPU topology/frequency, CPU temperature selection, PCI IDs, mountinfo, battery aggregation, and formatting.
-- [x] Latest verified baseline: 37 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #110](https://github.com/Praxis1071/praxfetch/actions/runs/41988481981).
+- [x] Latest verified baseline: 37 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #112](https://github.com/Praxis1071/praxfetch/actions/runs/41988687679).
 
 ## 3. Prioritized implementation roadmap
 
@@ -87,6 +87,7 @@ The phases are ordered by dependency and risk, not by how visually impressive a 
 - [x] Remove the DMI computer product name as a fallback CPU model, avoiding laptop/desktop model names being mislabeled as processors.
 - [x] Follow os-release precedence precisely: fall back to `/usr/lib/os-release` only when `/etc/os-release` is missing, and parse quoted/unquoted backslash escapes according to their shell-style quoting context.
 - [x] Make package counts unavailable when the database cannot be read or a directory scan is incomplete; parse dpkg status stanzas correctly with LF/CRLF line endings and validate APK package names.
+- [x] Validate battery energy/charge weights as finite positive values and aggregate them in `f64` to avoid malformed or extreme readings producing NaN/Infinity output.
 - [x] Add fixture-based `/proc/meminfo` parsing tests and regression tests for missing values, hwmon faults, temperature boundaries, display connector-only output, and CPUFreq policy weighting/overflow.
 - [x] Weight CPUFreq policy readings by online CPUs, ignore policies with no online CPUs, and use checked arithmetic for aggregation.
 - [x] Exclude known remote, generic FUSE, and overlay mounts before calling `statvfs()`; do not probe `/` as a fallback when mount metadata is unavailable, preserving the no-network and non-blocking design.
