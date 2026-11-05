@@ -77,9 +77,7 @@ pub struct DisplayDevice {
 #[derive(Default)]
 pub struct NetworkInfo {
     pub interfaces: usize,
-    pub physical: usize,
     pub wireless: usize,
-    pub virtual_interfaces: usize,
     pub up: usize,
 }
 
@@ -208,15 +206,6 @@ fn read_display() -> DisplayInfo {
     DisplayInfo { devices }
 }
 
-fn is_physical_network_device(path: &Path) -> bool {
-    let Ok(resolved) = fs::canonicalize(path) else {
-        return false;
-    };
-
-    let path = resolved.to_string_lossy();
-    path.starts_with("/sys/devices/") && !path.starts_with("/sys/devices/virtual/")
-}
-
 fn read_network() -> NetworkInfo {
     let Ok(entries) = fs::read_dir("/sys/class/net") else {
         return NetworkInfo::default();
@@ -235,12 +224,6 @@ fn read_network() -> NetworkInfo {
 
         if path.join("wireless").exists() {
             result.wireless += 1;
-        }
-
-        if is_physical_network_device(&path) {
-            result.physical += 1;
-        } else {
-            result.virtual_interfaces += 1;
         }
 
         if read_path(&path.join("operstate")) == "up" {
@@ -804,8 +787,8 @@ pub fn network(n: &NetworkInfo) -> String {
     }
 
     format!(
-        "{} up / {} interfaces ({} wireless, {} physical, {} virtual)",
-        n.up, n.interfaces, n.wireless, n.physical, n.virtual_interfaces
+        "{} up / {} interfaces ({} wireless)",
+        n.up, n.interfaces, n.wireless
     )
 }
 
@@ -925,14 +908,12 @@ mod tests {
     fn network_handles_physical_and_virtual_interfaces() {
         let value = network(&NetworkInfo {
             interfaces: 3,
-            physical: 2,
             wireless: 1,
-            virtual_interfaces: 1,
             up: 2,
         });
         assert_eq!(
             value,
-            "2 up / 3 interfaces (1 wireless, 2 physical, 1 virtual)"
+            "2 up / 3 interfaces (1 wireless)"
         );
     }
 
