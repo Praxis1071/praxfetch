@@ -2,100 +2,16 @@ use colored::Colorize;
 
 use crate::info::OsInfo;
 
-pub fn logo(os: &OsInfo) -> Vec<String> {
-    let id = os.id.to_lowercase();
-    let like = os.id_like.to_lowercase();
-
-    let lines: &[&str] = match distro_family(&id, &like) {
-        "cachyos" => &[
-            "      .--.--.",
-            "     /  _  \\",
-            "    |  ( )  |",
-            "    |  .-.  |",
-            "     \\ (__)/ ",
-            "      `--'  ",
-            "      CachyOS",
-        ],
-        "arch" => &[
-            "        /\\",
-            "       /  \\",
-            "      / /\\ \\",
-            "     / /  \\ \\",
-            "     \\ \\__/ /",
-            "      `--'",
-            "      Arch",
-        ],
-        "ubuntu" => &[
-            "      .-''''-.",
-            "     /  .-.  \\",
-            "     |  | |  |",
-            "     |  '-'  |",
-            "     \\  .-.  /",
-            "      `-` `-'",
-            "      Ubuntu",
-        ],
-        "debian" => &[
-            "      ___",
-            "     / _ \\",
-            "    | | | |",
-            "    | |_| |",
-            "     \\___/",
-            "      Debian",
-        ],
-        "fedora" => &[
-            "      ____",
-            "     / __ \\",
-            "    / /_/ /",
-            "   / ____/",
-            "  /_/",
-            "    Fedora",
-        ],
-        "nixos" => &[
-            "       ___",
-            "     .-"-.",
-            "   .'     '.",
-            "   /  .-.  \\",
-            "   |  |_|  |",
-            "    `-.__.-'",
-            "      NixOS",
-        ],
-        "gentoo" => &[
-            "      ___",
-            "     / _ \\",
-            "    / /_\\ \\",
-            "   / /_\\_\\ |",
-            "   \\_____/ /",
-            "      Gentoo",
-        ],
-        "alpine" => &[
-            "         __",
-            "       .-''-.",
-            "      /  _  \\",
-            "      |  | | |",
-            "      |  '-' |",
-            "       `.__.'",
-            "      Alpine",
-        ],
-        "void" => &[
-            "       ____",
-            "      / __ \\",
-            "     / /_/ /",
-            "     \\__,_/",
-            "      Void",
-        ],
-        _ => &[
-            "       .--.",
-            "      |o_o |",
-            "      |:_/ |",
-            "     //   \\ \\",
-            "    (|     | )",
-            "   /\\_   _/\\",
-            "   \\___)=(___/",
-            "      Linux",
-        ],
-    };
-
-    normalize_logo(lines)
+pub fn logo(_os: &OsInfo) -> Vec<String> {
+    normalize_logo(&[
+        "       .--.",
+        "      |o_o |",
+        "      |:_/ |",
+        "     //   \\ \\",
+        "    (|     | )",
+        "   /'\\_   _/\\",
+        "   \\___)=(___/",
+    ])
 }
 
 fn normalize_logo(lines: &[&str]) -> Vec<String> {
@@ -219,12 +135,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn logo_lines_have_no_trailing_whitespace() {
-        let os = OsInfo {
-            id: "gentoo".to_owned(),
-            ..Default::default()
-        };
-        assert!(logo(&os).iter().all(|line| line == line.trim_end()));
+    fn every_distribution_uses_the_same_tux_logo() {
+        let distributions = ["cachyos", "arch", "ubuntu", "debian", "fedora", "nixos"];
+        let expected = logo(&OsInfo::default());
+
+        for id in distributions {
+            let os = OsInfo {
+                id: id.to_owned(),
+                ..Default::default()
+            };
+            assert_eq!(logo(&os), expected);
+        }
+        assert!(expected.iter().all(|line| line == line.trim_end()));
+        assert!(expected.iter().any(|line| line.contains("o_o")));
     }
 
     #[test]
