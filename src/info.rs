@@ -1009,12 +1009,16 @@ fn filesystem_capacity(path: &Path) -> Option<(u64, u64)> {
 
     let stat = unsafe { stat.assume_init() };
     let block_size = if stat.f_frsize > 0 {
-        stat.f_frsize as u64
+        u64::try_from(u128::from(stat.f_frsize)).ok()?
     } else {
-        stat.f_bsize as u64
+        u64::try_from(u128::from(stat.f_bsize)).ok()?
     };
-    let total = (stat.f_blocks as u64).checked_mul(block_size)?;
-    let available = (stat.f_bavail as u64).checked_mul(block_size)?.min(total);
+    let total = u64::try_from(u128::from(stat.f_blocks).checked_mul(u128::from(block_size))?)
+        .ok()?;
+    let available =
+        u64::try_from(u128::from(stat.f_bavail).checked_mul(u128::from(block_size))?)
+            .ok()?
+            .min(total);
 
     (total > 0).then_some((total, available))
 }
