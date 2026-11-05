@@ -402,7 +402,7 @@ fn parse_cpu_list(value: &str) -> Vec<usize> {
             }
             (Some(end), None) => {
                 if let Ok(end) = end.parse::<usize>() {
-                    if end >= start && end - start <= 4096 {
+                    if end >= start && end - start <= 65_536 {
                         cpus.extend(start..=end);
                     }
                 }
@@ -419,7 +419,7 @@ fn count_cpu_range(value: &str) -> usize {
 }
 
 fn read_physical_core_count(online_cpus: &[usize]) -> Option<usize> {
-    let mut cores = BTreeSet::new();
+    let mut cores = Vec::with_capacity(online_cpus.len());
 
     for cpu in online_cpus {
         let topology = format!("/sys/devices/system/cpu/cpu{cpu}/topology");
@@ -437,14 +437,21 @@ fn read_physical_core_count(online_cpus: &[usize]) -> Option<usize> {
             return None;
         }
 
-        cores.insert((package_id, sibling_cpus));
+        cores.push((package_id, sibling_cpus));
     }
 
     if cores.is_empty() {
         None
     } else {
-        Some(cores.len())
+        Some(count_unique_core_groups(cores))
     }
+}
+
+fn count_unique_core_groups<I>(groups: I) -> usize
+where
+    I: IntoIterator<Item = (i32, Vec<usize>)>,
+{
+    groups.into_iter().collect::<BTreeSet<_>>().len()
 }
 
 fn read_memory_and_swap() -> (MemoryInfo, SwapInfo) {
@@ -876,6 +883,22 @@ mod tests {
         assert_eq!(count_cpu_range("0-3,8-11"), 8);
         assert_eq!(count_cpu_range("0,2,4"), 3);
         assert_eq!(count_cpu_range(""), 0);
+    }
+
+    #[test]
+    fn cpu_list_parser_deduplicates_and_ignores_invalid_ranges() {
+        assert_eq!(parse_cpu_list("0-2,2,4-5,broken,8-7"), vec![0, 1, 2, 4, 5]);
+    }
+
+    #[test]
+    fn physical_core_groups_are_deduplicated_per_package() {
+        let groups = vec![
+            (0, vec![0, 1]),
+            (0, vec![0, 1]),
+            (0, vec![2, 3]),
+            (1, vec![0, 1]),
+        ];
+        assert_eq!(count_unique_core_groups(groups), 3);
     }
 
     #[test]
