@@ -918,10 +918,10 @@ fn decode_mount_field(value: &str) -> Option<String> {
                 return None;
             }
 
-            let octal = (bytes[index + 1] - b'0') * 64
-                + (bytes[index + 2] - b'0') * 8
-                + (bytes[index + 3] - b'0');
-            decoded.push(octal);
+            let octal = u16::from(bytes[index + 1] - b'0') * 64
+                + u16::from(bytes[index + 2] - b'0') * 8
+                + u16::from(bytes[index + 3] - b'0');
+            decoded.push(u8::try_from(octal).ok()?);
             index += 4;
         } else {
             decoded.push(bytes[index]);
@@ -946,7 +946,10 @@ fn parse_mountinfo(text: &str) -> Vec<MountEntry> {
         }
 
         let device = fields[2];
-        if !device.contains(':') {
+        let Some((major, minor)) = device.split_once(':') else {
+            continue;
+        };
+        if major.parse::<u32>().is_err() || minor.parse::<u32>().is_err() {
             continue;
         }
 
@@ -1004,7 +1007,11 @@ fn filesystem_capacity(path: &Path) -> Option<(u64, u64)> {
     }
 
     let stat = unsafe { stat.assume_init() };
-    let block_size = stat.f_frsize as u64;
+    let block_size = if stat.f_frsize > 0 {
+        stat.f_frsize as u64
+    } else {
+        stat.f_bsize as u64
+    };
     let total = (stat.f_blocks as u64).checked_mul(block_size)?;
     let available = (stat.f_bavail as u64)
         .checked_mul(block_size)?
@@ -1375,6 +1382,16 @@ mod tests {
 not a valid mount line\n\
 40 25 8:3 / /mnt/bad\\999 rw - ext4 /dev/sda3 rw\n";
         assert!(parse_mountinfo(mountinfo).is_empty());
+    }
+
+    #[test]
+    fn mount_field_decoder_handles_kernel_escape_sequences() {
+        assert_eq!(
+            decode_mount_field(r"/mnt/a\040b\011c\012d\134e").as_deref(),
+            Some("/mnt/a b\tc\nd\\e")
+        );
+        assert_eq!(decode_mount_field(r"/mnt/bad\777"), None);
+        assert_eq!(decode_mount_field(r"/mnt/bad\04x"), None);
     }
 
     #[test]
