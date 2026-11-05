@@ -23,7 +23,7 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **DE/WM** — XDG_CURRENT_DESKTOP / DESKTOP_SESSION
 - **Terminal** — TERM_PROGRAM / TERM
 - **CPU** — model from /proc/cpuinfo; online logical threads and physical cores from kernel topology; frequency prefers hardware-reported CPUFreq measurements and clearly falls back to scaling_cur_freq only when needed
-- **CPU Temperature** — prefers CPU-specific hwmon sensors (package/die readings over individual cores), with matching thermal-zone fallback; rejects implausible and voltage-like values
+- **CPU Temperature** — prefers CPU package/die readings, ignores hwmon channels marked faulty, excludes AMD Tctl-only control readings from physical temperature, and falls back to matching CPU thermal zones
 - **Memory** — /proc/meminfo
 - **Swap** — /proc/meminfo
 - **Mounted Storage** — parses /proc/self/mountinfo, decodes escaped mount paths, excludes pseudo-filesystems, deduplicates bind mounts by major:minor, and uses POSIX statvfs() to aggregate accessible filesystem capacity without subprocesses
