@@ -77,7 +77,7 @@ fn main() {
         ),
         ("Memory", info::memory(&s.memory)),
         ("Swap", info::swap(&s.swap)),
-        ("Disk", info::disk(&s.disk)),
+        ("Disk", {\n            let summary = info::disk(&s.disk);\n            if s.disk.filesystems > 1 && summary != "unknown" {\n                format!("{summary} ({} filesystems)", s.disk.filesystems)\n            } else {\n                summary\n            }\n        }),
         ("Battery", info::battery(&s.battery)),
         ("GPU", info::gpu(&s.gpu)),
         ("Display", info::display(&s.display)),
