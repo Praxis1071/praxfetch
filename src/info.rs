@@ -1,4 +1,4 @@
-use std::{env, fs, path::Path};
+use std::{collections::BTreeSet, env, fs, path::Path};
 
 #[derive(Default)]
 pub struct OsInfo {
@@ -19,7 +19,8 @@ pub struct HostInfo {
 #[derive(Default)]
 pub struct CpuInfo {
     pub model: String,
-    pub cores: usize,
+    pub physical_cores: Option<usize>,
+    pub threads: usize,
 }
 
 #[derive(Default)]
@@ -332,11 +333,11 @@ fn unescape_os_release(value: &str) -> String {
 fn read_cpu() -> CpuInfo {
     let text = fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
     let mut model = String::new();
-    let mut cores = 0usize;
+    let mut proc_threads = 0usize;
 
     for line in text.lines() {
         if line.starts_with("processor") && line.contains(':') {
-            cores += 1;
+            proc_threads += 1;
         }
 
         if model.is_empty() {
@@ -354,9 +355,22 @@ fn read_cpu() -> CpuInfo {
         }
     }
 
-    if cores == 0 {
-        cores = count_cpu_range(&read("/sys/devices/system/cpu/online"));
-    }
+    let online_cpus = parse_cpu_list(&read("/sys/devices/system/cpu/online"));
+    let threads = if online_cpus.is_empty() {
+        if proc_threads > 0 {
+            proc_threads
+        } else {
+            count_cpu_range(&read("/sys/devices/system/cpu/possible"))
+        }
+    } else {
+        online_cpus.len()
+    };
+
+    let physical_cores = if online_cpus.is_empty() {
+        None
+    } else {
+        read_physical_core_count(&online_cpus)
+    };
 
     if model.is_empty() {
         model = read("/sys/devices/virtual/dmi/id/product_name");
@@ -366,24 +380,69 @@ fn read_cpu() -> CpuInfo {
         model = "unknown".to_owned();
     }
 
-    CpuInfo { model, cores }
+    CpuInfo {
+        model,
+        physical_cores,
+        threads,
+    }
+}
+
+fn parse_cpu_list(value: &str) -> Vec<usize> {
+    let mut cpus = BTreeSet::new();
+
+    for item in value.split(',').map(str::trim).filter(|item| !item.is_empty()) {
+        let mut bounds = item.split('-');
+        let Some(start) = bounds.next().and_then(|part| part.parse::<usize>().ok()) else {
+            continue;
+        };
+
+        match (bounds.next(), bounds.next()) {
+            (None, None) => {
+                cpus.insert(start);
+            }
+            (Some(end), None) => {
+                if let Ok(end) = end.parse::<usize>() {
+                    if end >= start && end - start <= 4096 {
+                        cpus.extend(start..=end);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    cpus.into_iter().collect()
 }
 
 fn count_cpu_range(value: &str) -> usize {
-    value
-        .split(',')
-        .map(|range| {
-            let mut parts = range.trim().split('-');
-            let start = parts.next().and_then(|v| v.parse::<usize>().ok());
-            let end = parts.next().and_then(|v| v.parse::<usize>().ok());
+    parse_cpu_list(value).len()
+}
 
-            match (start, end) {
-                (Some(start), Some(end)) if end >= start => end - start + 1,
-                (Some(_), None) => 1,
-                _ => 0,
-            }
-        })
-        .sum()
+fn read_physical_core_count(online_cpus: &[usize]) -> Option<usize> {
+    let mut cores = BTreeSet::new();
+
+    for cpu in online_cpus {
+        let topology = format!("/sys/devices/system/cpu/cpu{cpu}/topology");
+        let package_id = read_path(&Path::new(&topology).join("physical_package_id"))
+            .parse::<i32>()
+            .ok()?;
+        let core_id = read_path(&Path::new(&topology).join("core_id"))
+            .parse::<i32>()
+            .ok()?;
+
+        // Negative IDs are kernel fallback values, not reliable topology data.
+        if package_id < 0 || core_id < 0 {
+            return None;
+        }
+
+        cores.insert((package_id, core_id));
+    }
+
+    if cores.is_empty() {
+        None
+    } else {
+        Some(cores.len())
+    }
 }
 
 fn read_memory_and_swap() -> (MemoryInfo, SwapInfo) {
