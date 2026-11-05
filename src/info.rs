@@ -1,9 +1,9 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     env,
-    ffi::CString,
+    ffi::{CString, OsString},
     fs,
-    os::unix::ffi::OsStrExt,
+    os::unix::ffi::{OsStrExt, OsStringExt},
     path::{Path, PathBuf},
 };
 
@@ -1109,41 +1109,48 @@ fn weighted_battery_average(
     percent.is_finite().then_some(percent as f32)
 }
 
-fn decode_mount_field(value: &str) -> Option<String> {
-    let bytes = value.as_bytes();
-    let mut decoded = Vec::with_capacity(bytes.len());
+fn decode_mount_field(value: &[u8]) -> Option<PathBuf> {
+    let mut decoded = Vec::with_capacity(value.len());
     let mut index = 0;
 
-    while index < bytes.len() {
-        if bytes[index] == b'\\' {
-            if index + 3 >= bytes.len()
-                || !bytes[index + 1..index + 4]
-                    .iter()
-                    .all(|byte| (b'0'..=b'7').contains(byte))
-            {
+    while index < value.len() {
+        if value[index] == b'\\' {
+            if index + 3 >= value.len() {
                 return None;
             }
 
-            let octal = u16::from(bytes[index + 1] - b'0') * 64
-                + u16::from(bytes[index + 2] - b'0') * 8
-                + u16::from(bytes[index + 3] - b'0');
-            decoded.push(u8::try_from(octal).ok()?);
+            let escape = &value[index + 1..index + 4];
+            let decoded_byte = match escape {
+                b"040" => b' ',
+                b"011" => b'\t',
+                b"012" => b'\n',
+                b"134" => b'\\',
+                _ => return None,
+            };
+            decoded.push(decoded_byte);
             index += 4;
         } else {
-            decoded.push(bytes[index]);
+            if value[index] == 0 {
+                return None;
+            }
+            decoded.push(value[index]);
             index += 1;
         }
     }
 
-    String::from_utf8(decoded).ok()
+    Some(PathBuf::from(OsString::from_vec(decoded)))
 }
 
 fn parse_mountinfo(text: &str) -> Vec<MountEntry> {
+    parse_mountinfo_bytes(text.as_bytes())
+}
+
+fn parse_mountinfo_bytes(text: &[u8]) -> Vec<MountEntry> {
     let mut mounts = Vec::new();
 
-    for line in text.lines() {
-        let fields: Vec<_> = line.split_whitespace().collect();
-        let Some(separator) = fields.iter().position(|field| *field == "-") else {
+    for line in text.split(|byte| *byte == b'\n') {
+        let fields: Vec<_> = line.split_ascii_whitespace().collect();
+        let Some(separator) = fields.iter().position(|field| *field == b"-") else {
             continue;
         };
 
@@ -1152,17 +1159,28 @@ fn parse_mountinfo(text: &str) -> Vec<MountEntry> {
         }
 
         let device = fields[2];
-        let Some((major, minor)) = device.split_once(':') else {
+        let Some(colon) = device.iter().position(|byte| *byte == b':') else {
             continue;
         };
-        if major.parse::<u32>().is_err() || minor.parse::<u32>().is_err() {
+        let (major, minor_with_colon) = device.split_at(colon);
+        let minor = &minor_with_colon[1..];
+        if major.is_empty()
+            || minor.is_empty()
+            || !major.iter().all(|byte| byte.is_ascii_digit())
+            || !minor.iter().all(|byte| byte.is_ascii_digit())
+        {
             continue;
         }
 
+        let Ok(device) = std::str::from_utf8(device) else {
+            continue;
+        };
+        let Ok(fs_type) = std::str::from_utf8(fields[separator + 1]) else {
+            continue;
+        };
         let Some(mount_point) = decode_mount_field(fields[4]) else {
             continue;
         };
-        let fs_type = fields[separator + 1];
 
         if is_pseudo_filesystem(fs_type) || is_nonlocal_or_stacked_filesystem(fs_type) {
             continue;
@@ -1170,7 +1188,7 @@ fn parse_mountinfo(text: &str) -> Vec<MountEntry> {
 
         mounts.push(MountEntry {
             device: device.to_owned(),
-            mount_point: PathBuf::from(mount_point),
+            mount_point,
         });
     }
 
@@ -1250,14 +1268,14 @@ fn filesystem_capacity(path: &Path) -> Option<(u64, u64)> {
 }
 
 fn read_disk() -> DiskInfo {
-    let Ok(mountinfo) = fs::read_to_string("/proc/self/mountinfo") else {
+    let Ok(mountinfo) = fs::read("/proc/self/mountinfo") else {
         return DiskInfo::default();
     };
 
     let mut seen_devices = BTreeSet::new();
     let mut result = DiskInfo::default();
 
-    for mount in parse_mountinfo(&mountinfo) {
+    for mount in parse_mountinfo_bytes(&mountinfo) {
         // Bind mounts and multiple views of the same filesystem share the
         // same major:minor device number; count their capacity only once.
         if seen_devices.contains(&mount.device) {
@@ -1715,12 +1733,24 @@ not a valid mount line\n\
 
     #[test]
     fn mount_field_decoder_handles_kernel_escape_sequences() {
-        assert_eq!(
-            decode_mount_field(r"/mnt/a\040b\011c\012d\134e").as_deref(),
-            Some("/mnt/a b\tc\nd\\e")
-        );
-        assert_eq!(decode_mount_field(r"/mnt/bad\777"), None);
-        assert_eq!(decode_mount_field(r"/mnt/bad\04x"), None);
+        let decoded = decode_mount_field(br"/mnt/a\040b\011c\012d\134e").unwrap();
+        assert_eq!(decoded.as_os_str().as_bytes(), b"/mnt/a b\tc\nd\\e");
+        assert_eq!(decode_mount_field(br"/mnt/bad\777"), None);
+        assert_eq!(decode_mount_field(br"/mnt/bad\04x"), None);
+    }
+
+    #[test]
+    fn mountinfo_parser_preserves_non_utf8_mount_paths() {
+        let mountinfo = b"41 25 8:4 / /mnt/\xffdisk rw - ext4 /dev/sda4 rw\n";
+        let mounts = parse_mountinfo_bytes(mountinfo);
+        assert_eq!(mounts.len(), 1);
+        assert_eq!(mounts[0].mount_point.as_os_str().as_bytes(), b"/mnt/\xffdisk");
+    }
+
+    #[test]
+    fn mountinfo_parser_rejects_unknown_escape_sequences() {
+        let mountinfo = "42 25 8:5 / /mnt/bad\\777 rw - ext4 /dev/sda5 rw\n";
+        assert!(parse_mountinfo(mountinfo).is_empty());
     }
 
     #[test]
