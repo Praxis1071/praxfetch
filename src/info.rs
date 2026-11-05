@@ -368,7 +368,7 @@ pub struct SystemInfo {
     pub os: OsInfo,
     pub host: HostInfo,
     pub kernel: String,
-    pub uptime: f64,
+    pub uptime: Option<f64>,
     pub load_avg: Option<(f64, f64, f64)>,
     pub packages: PackageInfo,
     pub shell: String,
@@ -879,6 +879,11 @@ fn read_memory_and_swap() -> (MemoryInfo, SwapInfo) {
     parse_meminfo(&text)
 }
 
+fn parse_uptime_seconds(text: &str) -> Option<f64> {
+    let seconds = text.split_whitespace().next()?.parse::<f64>().ok()?;
+    (seconds.is_finite() && seconds >= 0.0).then_some(seconds)
+}
+
 fn read_load_avg() -> Option<(f64, f64, f64)> {
     let text = read("/proc/loadavg");
     let mut values = text
@@ -1336,12 +1341,7 @@ pub fn collect() -> SystemInfo {
             product: read("/sys/class/dmi/id/product_name"),
         },
         kernel: read("/proc/sys/kernel/osrelease"),
-        uptime: read("/proc/uptime")
-            .split_whitespace()
-            .next()
-            .and_then(|x| x.parse::<f64>().ok())
-            .filter(|value| value.is_finite() && *value >= 0.0)
-            .unwrap_or(0.0),
+        uptime: parse_uptime_seconds(&read("/proc/uptime")),
         load_avg: read_load_avg(),
         packages: read_packages(),
         shell,
@@ -1682,6 +1682,17 @@ mod tests {
         assert!(sensor_has_fault("1"));
         assert!(!sensor_has_fault("0"));
         assert!(!sensor_has_fault(""));
+    }
+
+    #[test]
+    fn uptime_parser_rejects_missing_and_invalid_values() {
+        assert_eq!(parse_uptime_seconds("123.5 456.0"), Some(123.5));
+        assert_eq!(parse_uptime_seconds("0 0"), Some(0.0));
+        assert_eq!(parse_uptime_seconds(""), None);
+        assert_eq!(parse_uptime_seconds("invalid 0"), None);
+        assert_eq!(parse_uptime_seconds("-1 0"), None);
+        assert_eq!(parse_uptime_seconds("NaN 0"), None);
+        assert_eq!(parse_uptime_seconds("inf 0"), None);
     }
 
     #[test]
