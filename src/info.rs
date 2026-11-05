@@ -884,18 +884,22 @@ fn parse_uptime_seconds(text: &str) -> Option<f64> {
     (seconds.is_finite() && seconds >= 0.0).then_some(seconds)
 }
 
-fn read_load_avg() -> Option<(f64, f64, f64)> {
-    let text = read("/proc/loadavg");
-    let mut values = text
-        .split_whitespace()
-        .take(3)
-        .filter_map(|value| value.parse::<f64>().ok());
+fn parse_load_average(text: &str) -> Option<(f64, f64, f64)> {
+    let mut fields = text.split_whitespace();
+    let values = (
+        fields.next()?.parse::<f64>().ok()?,
+        fields.next()?.parse::<f64>().ok()?,
+        fields.next()?.parse::<f64>().ok()?,
+    );
 
-    let values = (values.next()?, values.next()?, values.next()?);
     [values.0, values.1, values.2]
         .iter()
         .all(|value| value.is_finite() && *value >= 0.0)
         .then_some(values)
+}
+
+fn read_load_avg() -> Option<(f64, f64, f64)> {
+    parse_load_average(&read("/proc/loadavg"))
 }
 
 fn count_package_directories(path: &Path) -> Option<usize> {
@@ -1686,6 +1690,19 @@ mod tests {
         assert!(sensor_has_fault("1"));
         assert!(!sensor_has_fault("0"));
         assert!(!sensor_has_fault(""));
+    }
+
+    #[test]
+    fn load_average_parser_does_not_shift_malformed_fields() {
+        assert_eq!(
+            parse_load_average("0.10 0.20 0.30 1/100 1234"),
+            Some((0.10, 0.20, 0.30))
+        );
+        assert_eq!(parse_load_average("bad 0.20 0.30"), None);
+        assert_eq!(parse_load_average("0.10 bad 0.30"), None);
+        assert_eq!(parse_load_average("0.10 0.20"), None);
+        assert_eq!(parse_load_average("-0.1 0.2 0.3"), None);
+        assert_eq!(parse_load_average("NaN 0.2 0.3"), None);
     }
 
     #[test]
