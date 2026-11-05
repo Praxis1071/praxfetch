@@ -17,7 +17,7 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **Host** — DMI vendor/product when available
 - **Kernel** — /proc/sys/kernel/osrelease
 - **Uptime** — /proc/uptime; malformed or unavailable values are reported as unknown rather than a fabricated zero
-- **Load Average** — /proc/loadavg
+- **Load Average** — /proc/loadavg; malformed or incomplete fields are reported as unavailable instead of shifting later values into the wrong columns
 - **Packages** — Pacman, dpkg, APK, and RPM detection, including the modern /usr/lib/sysimage/rpm database location
 - **Shell** — $SHELL and exported shell-version variables when available
 - **DE/WM** — XDG_CURRENT_DESKTOP / DESKTOP_SESSION
