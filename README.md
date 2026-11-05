@@ -22,12 +22,12 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **Shell** — $SHELL and exported shell-version variables when available
 - **DE/WM** — XDG_CURRENT_DESKTOP / DESKTOP_SESSION
 - **Terminal** — TERM_PROGRAM / TERM
-- **CPU** — model from /proc/cpuinfo; online logical threads from the kernel CPU list; physical cores from the stable sysfs core sibling topology when the kernel exposes reliable topology data
+- **CPU** — model from /proc/cpuinfo; online logical threads and physical cores from kernel topology; frequency prefers hardware-reported CPUFreq measurements and clearly falls back to scaling_cur_freq only when needed
 - **Memory** — /proc/meminfo
 - **Swap** — /proc/meminfo
 - **Root Disk** — POSIX statvfs("/") with no subprocess
 - **Battery** — /sys/class/power_supply/BAT* when available; preserves charging, discharging, full, and not-charging states, and avoids mixing incompatible energy/charge units when aggregating multiple batteries
-- **GPU** — Linux DRM/sysfs card devices and kernel driver, including multiple GPUs and human-readable PCI-vendor fallbacks
+- **GPU** — Linux DRM/sysfs card devices and kernel driver; resolves PCI vendor/device IDs through the locally installed pci.ids database when available, with readable vendor/ID fallback
 - **Display** — all connected DRM connectors and their reported native modes
 - **Network** — interface count, operational link state, and wireless interface count
 
