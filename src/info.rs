@@ -558,8 +558,16 @@ fn read_packages() -> PackageInfo {
         };
     }
 
-    if Path::new("/var/lib/rpm/Packages").exists()
-        || Path::new("/var/lib/rpm/rpmdb.sqlite").exists()
+    if [
+        "/var/lib/rpm/Packages",
+        "/var/lib/rpm/rpmdb.sqlite",
+        "/var/lib/rpm/Packages.db",
+        "/usr/lib/sysimage/rpm/Packages",
+        "/usr/lib/sysimage/rpm/rpmdb.sqlite",
+        "/usr/lib/sysimage/rpm/Packages.db",
+    ]
+    .iter()
+    .any(|path| Path::new(path).exists())
     {
         return PackageInfo {
             manager: "rpm".into(),
