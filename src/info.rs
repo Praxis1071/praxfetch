@@ -141,7 +141,10 @@ fn read_gpu() -> GpuInfo {
 
         let driver = fs::read_link(device.join("driver"))
             .ok()
-            .and_then(|path| {\n                path.file_name()\n                    .map(|value| value.to_string_lossy().into_owned())\n            })
+            .and_then(|path| {
+                path.file_name()
+                    .map(|value| value.to_string_lossy().into_owned())
+            })
             .unwrap_or_default();
 
         let mut pci_lookup = None;
@@ -1139,11 +1142,15 @@ mod tests {
         .collect();
         let names = parse_pci_ids(database, &wanted);
         assert_eq!(
-            names\n                .get(&("8086".into(), "1234".into()))\n                .map(String::as_str),
+            names
+                .get(&("8086".into(), "1234".into()))
+                .map(String::as_str),
             Some("Example Integrated Graphics")
         );
         assert_eq!(
-            names\n                .get(&("1002".into(), "abcd".into()))\n                .map(String::as_str),
+            names
+                .get(&("1002".into(), "abcd".into()))
+                .map(String::as_str),
             Some("Example Radeon Device")
         );
         assert_eq!(names.len(), 2);
