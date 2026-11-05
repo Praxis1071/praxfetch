@@ -13,7 +13,7 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 ## Current modules
 
 - **User / Hostname** — $USER + /proc/sys/kernel/hostname
-- **OS** — /etc/os-release
+- **OS** — /etc/os-release, falling back to /usr/lib/os-release; PRETTY_NAME is preferred for display
 - **Host** — DMI vendor/product when available
 - **Kernel** — /proc/sys/kernel/osrelease
 - **Uptime** — /proc/uptime
@@ -31,11 +31,9 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **Display** — all connected DRM connectors and their reported native modes
 - **Network** — interface count, link state, wireless count, and physical vs virtual interface classification
 
-## Distro logos
+## ASCII logo
 
-CachyOS, Arch Linux, Ubuntu, Debian, Fedora, NixOS, Gentoo, Alpine, Void Linux and a generic Linux fallback are currently supported.
-
-Distro family selection uses both ID and ID_LIKE, so derivatives can inherit a sensible family logo/color without requiring a dedicated logo for every distribution.
+praxfetch always displays the same Tux ASCII mascot on every Linux distribution. The logo is intentionally independent of distro detection, keeping the visual identity consistent. Distribution-specific color accents may still be applied.
 
 ## Design constraints
 
@@ -85,7 +83,7 @@ The release profile uses optimization, ThinLTO, one codegen unit, abort-on-panic
 The code is intentionally small, but follows a useful detection/formatting boundary:
 
 - src/info.rs — Linux detection, parsing, validation, and formatting helpers.
-- src/ascii.rs — distro logo selection, terminal-width-safe logo padding, logo coloring, and color blocks.
+- src/ascii.rs — the single Tux logo, terminal-width-safe padding, distro-aware color accents, and color blocks.
 - src/main.rs — CLI parsing and final presentation.
 
 This mirrors a principle used by mature fetch tools such as Fastfetch: detection logic should not depend on presentation logic.
@@ -109,7 +107,7 @@ This mirrors a principle used by mature fetch tools such as Fastfetch: detection
 
 ### 0.3.x — UX
 - Configurable module selection
-- More logo families
+- Tux logo rendering and terminal compatibility
 - Better terminal detection/version reporting
 - Optional JSON output for scripting
 
