@@ -357,11 +357,7 @@ fn read_cpu() -> CpuInfo {
 
     let online_cpus = parse_cpu_list(&read("/sys/devices/system/cpu/online"));
     let threads = if online_cpus.is_empty() {
-        if proc_threads > 0 {
-            proc_threads
-        } else {
-            count_cpu_range(&read("/sys/devices/system/cpu/possible"))
-        }
+        proc_threads
     } else {
         online_cpus.len()
     };
@@ -416,10 +412,6 @@ fn parse_cpu_list(value: &str) -> Vec<usize> {
     }
 
     cpus.into_iter().collect()
-}
-
-fn count_cpu_range(value: &str) -> usize {
-    parse_cpu_list(value).len()
 }
 
 fn read_physical_core_count(online_cpus: &[usize]) -> Option<usize> {
@@ -882,13 +874,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cpu_ranges_are_counted() {
-        assert_eq!(count_cpu_range("0-3"), 4);
-        assert_eq!(count_cpu_range("0-3,8-11"), 8);
-        assert_eq!(count_cpu_range("0,2,4"), 3);
-        assert_eq!(count_cpu_range(""), 0);
-    }
-
     #[test]
     fn cpu_list_parser_deduplicates_and_ignores_invalid_ranges() {
         assert_eq!(parse_cpu_list("0-2,2,4-5,broken,8-7"), vec![0, 1, 2, 4, 5]);
