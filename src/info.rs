@@ -38,14 +38,14 @@ pub struct TemperatureInfo {
 
 #[derive(Default)]
 pub struct MemoryInfo {
-    pub total_kb: u64,
-    pub available_kb: u64,
+    pub total_kb: Option<u64>,
+    pub available_kb: Option<u64>,
 }
 
 #[derive(Default)]
 pub struct SwapInfo {
-    pub total_kb: u64,
-    pub free_kb: u64,
+    pub total_kb: Option<u64>,
+    pub free_kb: Option<u64>,
 }
 
 #[derive(Default)]
@@ -101,7 +101,6 @@ pub struct DisplayInfo {
 #[derive(Default)]
 pub struct DisplayDevice {
     pub connector: String,
-    pub resolution: String,
 }
 
 #[derive(Default)]
@@ -309,21 +308,12 @@ fn read_display() -> DisplayInfo {
             continue;
         }
 
-        let resolution = read_path(&base.join("modes"))
-            .lines()
-            .next()
-            .unwrap_or_default()
-            .to_owned();
-
         let connector = name
             .split_once('-')
             .map(|(_, connector)| connector.to_owned())
             .unwrap_or(name);
 
-        let device = DisplayDevice {
-            connector,
-            resolution,
-        };
+        let device = DisplayDevice { connector };
 
         if status == "connected" {
             devices.push(device);
@@ -505,10 +495,6 @@ fn read_cpu() -> CpuInfo {
     };
 
     if model.is_empty() {
-        model = read("/sys/devices/virtual/dmi/id/product_name");
-    }
-
-    if model.is_empty() {
         model = "unknown".to_owned();
     }
 
@@ -602,9 +588,9 @@ fn read_per_cpu_frequency_mhz() -> Option<u64> {
 
 fn parse_temperature_millidegrees(value: &str) -> Option<f32> {
     let millidegrees = value.trim().parse::<i64>().ok()?;
-    // CPU temperatures below 5°C are not useful in ordinary systems and
-    // this floor also rejects hwmon channels reporting millivolts.
-    if !(5_000..=150_000).contains(&millidegrees) {
+    // Keep the physical sensor range broad enough for cold environments.
+    // CPU-specific hwmon drivers and thermal zones provide temperature units.
+    if !(0..=150_000).contains(&millidegrees) {
         return None;
     }
 
@@ -619,6 +605,7 @@ fn is_cpu_hwmon(name: &str) -> bool {
         "zenpower",
         "cpu_thermal",
         "x86_pkg_temp",
+        "peci_cputemp",
     ]
     .iter()
     .any(|chip| name.contains(chip))
@@ -679,12 +666,17 @@ fn read_cpu_temperature() -> TemperatureInfo {
                     continue;
                 }
 
+                let sensor_prefix = format!("temp{index}");
+                if read_path(&chip_path.join(format!("{sensor_prefix}_fault"))) == "1" {
+                    continue;
+                }
+
                 let Some(temperature) =
                     parse_temperature_millidegrees(&read_path(&attribute.path()))
                 else {
                     continue;
                 };
-                let label = read_path(&chip_path.join(format!("temp{index}_label")));
+                let label = read_path(&chip_path.join(format!("{sensor_prefix}_label")));
                 let label = if label.is_empty() {
                     format!("{chip_name} temp{index}")
                 } else {
@@ -793,51 +785,32 @@ where
     groups.into_iter().collect::<BTreeSet<_>>().len()
 }
 
+fn parse_meminfo_value(value: &str) -> Option<u64> {
+    let mut fields = value.split_whitespace();
+    let amount = fields.next()?.parse::<u64>().ok()?;
+    (fields.next()? == "kB" && fields.next().is_none()).then_some(amount)
+}
+
 fn read_memory_and_swap() -> (MemoryInfo, SwapInfo) {
     let text = fs::read_to_string("/proc/meminfo").unwrap_or_default();
-    let mut total = 0;
-    let mut available = 0;
-    let mut swap_total = 0;
-    let mut swap_free = 0;
+    let mut memory = MemoryInfo::default();
+    let mut swap = SwapInfo::default();
 
     for line in text.lines() {
-        if let Some(v) = line.strip_prefix("MemTotal:") {
-            total = v
-                .split_whitespace()
-                .next()
-                .and_then(|x| x.parse().ok())
-                .unwrap_or(0);
-        } else if let Some(v) = line.strip_prefix("MemAvailable:") {
-            available = v
-                .split_whitespace()
-                .next()
-                .and_then(|x| x.parse().ok())
-                .unwrap_or(0);
-        } else if let Some(v) = line.strip_prefix("SwapTotal:") {
-            swap_total = v
-                .split_whitespace()
-                .next()
-                .and_then(|x| x.parse().ok())
-                .unwrap_or(0);
-        } else if let Some(v) = line.strip_prefix("SwapFree:") {
-            swap_free = v
-                .split_whitespace()
-                .next()
-                .and_then(|x| x.parse().ok())
-                .unwrap_or(0);
+        let Some((key, value)) = line.split_once(':') else {
+            continue;
+        };
+        let parsed = parse_meminfo_value(value);
+        match key {
+            "MemTotal" => memory.total_kb = parsed,
+            "MemAvailable" => memory.available_kb = parsed,
+            "SwapTotal" => swap.total_kb = parsed,
+            "SwapFree" => swap.free_kb = parsed,
+            _ => {}
         }
     }
 
-    (
-        MemoryInfo {
-            total_kb: total,
-            available_kb: available,
-        },
-        SwapInfo {
-            total_kb: swap_total,
-            free_kb: swap_free,
-        },
-    )
+    (memory, swap)
 }
 
 fn read_load_avg() -> Option<(f64, f64, f64)> {
@@ -847,7 +820,11 @@ fn read_load_avg() -> Option<(f64, f64, f64)> {
         .take(3)
         .filter_map(|value| value.parse::<f64>().ok());
 
-    Some((values.next()?, values.next()?, values.next()?))
+    let values = (values.next()?, values.next()?, values.next()?);
+    [values.0, values.1, values.2]
+        .iter()
+        .all(|value| value.is_finite() && *value >= 0.0)
+        .then_some(values)
 }
 
 fn read_packages() -> PackageInfo {
@@ -1230,7 +1207,8 @@ pub fn collect() -> SystemInfo {
         uptime: read("/proc/uptime")
             .split_whitespace()
             .next()
-            .and_then(|x| x.parse().ok())
+            .and_then(|x| x.parse::<f64>().ok())
+            .filter(|value| value.is_finite() && *value >= 0.0)
             .unwrap_or(0.0),
         load_avg: read_load_avg(),
         packages: read_packages(),
@@ -1284,35 +1262,46 @@ pub fn uptime(seconds: f64) -> String {
 }
 
 pub fn memory(m: &MemoryInfo) -> String {
-    if m.total_kb == 0 {
+    let Some(total) = m.total_kb.filter(|total| *total > 0) else {
         return "unknown".into();
-    }
+    };
 
-    let available = m.available_kb.min(m.total_kb);
-    let used = m.total_kb.saturating_sub(available);
-    let percent = used as f64 / m.total_kb as f64 * 100.0;
+    let total_gib = total as f64 / 1_048_576.0;
+    let Some(available) = m.available_kb else {
+        return format!("{total_gib:.1} GiB total (usage unavailable)");
+    };
+    let available = available.min(total);
+    let used = total.saturating_sub(available);
+    let percent = used as f64 / total as f64 * 100.0;
 
     format!(
         "{:.1} GiB / {:.1} GiB ({:.0}%)",
         used as f64 / 1_048_576.0,
-        m.total_kb as f64 / 1_048_576.0,
+        total_gib,
         percent
     )
 }
 
 pub fn swap(s: &SwapInfo) -> String {
-    if s.total_kb == 0 {
+    let Some(total) = s.total_kb else {
+        return "unknown".into();
+    };
+    if total == 0 {
         return "none".into();
     }
 
-    let free = s.free_kb.min(s.total_kb);
-    let used = s.total_kb.saturating_sub(free);
+    let total_gib = total as f64 / 1_048_576.0;
+    let Some(free) = s.free_kb else {
+        return format!("{total_gib:.1} GiB total (usage unavailable)");
+    };
+    let free = free.min(total);
+    let used = total.saturating_sub(free);
 
     format!(
         "{:.1} GiB / {:.1} GiB ({:.0}%)",
         used as f64 / 1_048_576.0,
-        s.total_kb as f64 / 1_048_576.0,
-        used as f64 / s.total_kb as f64 * 100.0
+        total_gib,
+        used as f64 / total as f64 * 100.0
     )
 }
 
@@ -1372,13 +1361,7 @@ pub fn display(d: &DisplayInfo) -> String {
 
     d.devices
         .iter()
-        .map(|device| {
-            if device.resolution.is_empty() {
-                device.connector.clone()
-            } else {
-                format!("{} {}", device.resolution, device.connector)
-            }
-        })
+        .map(|device| device.connector.clone())
         .collect::<Vec<_>>()
         .join(" / ")
 }
@@ -1451,7 +1434,7 @@ mod tests {
     fn cpu_temperature_parser_rejects_invalid_and_voltage_like_values() {
         assert_eq!(parse_temperature_millidegrees("42000"), Some(42.0));
         assert_eq!(parse_temperature_millidegrees("150001"), None);
-        assert_eq!(parse_temperature_millidegrees("1500"), None);
+        assert_eq!(parse_temperature_millidegrees("1500"), Some(1.5));
         assert_eq!(parse_temperature_millidegrees("not-a-number"), None);
     }
 
@@ -1495,6 +1478,61 @@ mod tests {
     }
 
     #[test]
+    fn meminfo_parser_preserves_missing_and_rejects_malformed_values() {
+        assert_eq!(parse_meminfo_value("1024 kB"), Some(1024));
+        assert_eq!(parse_meminfo_value("1024 MB"), None);
+        assert_eq!(parse_meminfo_value("not-a-number kB"), None);
+        assert_eq!(parse_meminfo_value("1024 kB trailing"), None);
+
+        let (memory, swap) = {
+            let text = "MemTotal: 8192 kB\\nSwapTotal: 0 kB\\nSwapFree: 0 kB\\n";
+            let mut memory = MemoryInfo::default();
+            let mut swap = SwapInfo::default();
+            for line in text.lines() {
+                if let Some((key, value)) = line.split_once(':') {
+                    match key {
+                        "MemTotal" => memory.total_kb = parse_meminfo_value(value),
+                        "MemAvailable" => memory.available_kb = parse_meminfo_value(value),
+                        "SwapTotal" => swap.total_kb = parse_meminfo_value(value),
+                        "SwapFree" => swap.free_kb = parse_meminfo_value(value),
+                        _ => {}
+                    }
+                }
+            }
+            (memory, swap)
+        };
+        assert_eq!(memory.total_kb, Some(8192));
+        assert_eq!(memory.available_kb, None);
+        assert_eq!(swap.total_kb, Some(0));
+        assert_eq!(swap.free_kb, Some(0));
+    }
+
+    #[test]
+    fn memory_and_swap_do_not_report_missing_values_as_zero_usage() {
+        assert_eq!(
+            memory(&MemoryInfo { total_kb: Some(1_048_576), available_kb: None }),
+            "1.0 GiB total (usage unavailable)"
+        );
+        assert_eq!(
+            swap(&SwapInfo { total_kb: Some(1_048_576), free_kb: None }),
+            "1.0 GiB total (usage unavailable)"
+        );
+        assert_eq!(swap(&SwapInfo::default()), "unknown");
+    }
+
+    #[test]
+    fn cpu_temperature_accepts_zero_and_checks_upper_bound() {
+        assert_eq!(parse_temperature_millidegrees("0"), Some(0.0));
+        assert_eq!(parse_temperature_millidegrees("150000"), Some(150.0));
+        assert_eq!(parse_temperature_millidegrees("150001"), None);
+    }
+
+    #[test]
+    fn cpu_hwmon_filter_includes_peci_cpu_sensors() {
+        assert!(is_cpu_hwmon("peci_cputemp"));
+    }
+
+    #[test]
     fn uptime_is_formatted() {
         assert_eq!(uptime(0.0), "0h 0m");
         assert_eq!(uptime(3661.0), "1h 1m");
@@ -1504,8 +1542,8 @@ mod tests {
     #[test]
     fn memory_never_exceeds_total() {
         let value = memory(&MemoryInfo {
-            total_kb: 1_048_576,
-            available_kb: 2_000_000,
+            total_kb: Some(1_048_576),
+            available_kb: Some(2_000_000),
         });
         assert_eq!(value, "0.0 GiB / 1.0 GiB (0%)");
     }
@@ -1514,15 +1552,15 @@ mod tests {
     fn swap_handles_missing_and_clamped_values() {
         assert_eq!(
             swap(&SwapInfo {
-                total_kb: 0,
-                free_kb: 0
+                total_kb: Some(0),
+                free_kb: Some(0)
             }),
             "none"
         );
         assert_eq!(
             swap(&SwapInfo {
-                total_kb: 1_048_576,
-                free_kb: 2_000_000,
+                total_kb: Some(1_048_576),
+                free_kb: Some(2_000_000),
             }),
             "0.0 GiB / 1.0 GiB (0%)"
         );
@@ -1612,15 +1650,13 @@ not a valid mount line\n\
             devices: vec![
                 DisplayDevice {
                     connector: "eDP-1".into(),
-                    resolution: "1920x1080".into(),
                 },
                 DisplayDevice {
                     connector: "HDMI-A-1".into(),
-                    resolution: "2560x1440".into(),
                 },
             ],
         });
-        assert_eq!(value, "1920x1080 eDP-1 / 2560x1440 HDMI-A-1");
+        assert_eq!(value, "eDP-1 / HDMI-A-1");
     }
 
     #[test]
