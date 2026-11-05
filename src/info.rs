@@ -1754,7 +1754,7 @@ not a valid mount line\n\
         assert_eq!(mounts.len(), 1);
         assert_eq!(
             mounts[0].mount_point.as_os_str().as_bytes(),
-            b"/mnt/\\xffdisk"
+            b"/mnt/\xffdisk"
         );
     }
 
