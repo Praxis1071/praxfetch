@@ -638,7 +638,10 @@ fn choose_cpu_temperature(readings: &[(String, f32)]) -> Option<f32> {
 
     readings
         .iter()
-        .filter(|(label, _)| temperature_priority(label) == best_priority)
+        .filter(|(label, _)| {
+            !label.to_ascii_lowercase().contains("tctl")
+                && temperature_priority(label) == best_priority
+        })
         .map(|(_, temperature)| *temperature)
         .reduce(f32::max)
 }
@@ -683,7 +686,9 @@ fn read_cpu_temperature() -> TemperatureInfo {
                     continue;
                 };
                 let label = read_path(&chip_path.join(format!("{sensor_prefix}_label")));
-                let label = if label.is_empty() {
+                let label = if label.is_empty() && chip_name == "k10temp" && index == "1" {
+                    "Tctl".to_owned()
+                } else if label.is_empty() {
                     format!("{chip_name} temp{index}")
                 } else {
                     label
@@ -1446,6 +1451,13 @@ mod tests {
         assert_eq!(parse_temperature_millidegrees("150001"), None);
         assert_eq!(parse_temperature_millidegrees("1500"), Some(1.5));
         assert_eq!(parse_temperature_millidegrees("not-a-number"), None);
+    }
+
+    #[test]
+    fn cpu_temperature_does_not_mislabel_tctl_as_physical_die_temperature() {
+        assert_eq!(choose_cpu_temperature(&[("Tctl".into(), 80.0)]), None);
+        let readings = vec![("Tctl".into(), 80.0), ("Tdie".into(), 72.0)];
+        assert_eq!(choose_cpu_temperature(&readings), Some(72.0));
     }
 
     #[test]
