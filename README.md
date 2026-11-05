@@ -18,7 +18,7 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **Kernel** — /proc/sys/kernel/osrelease
 - **Uptime** — /proc/uptime
 - **Load Average** — /proc/loadavg
-- **Packages** — Pacman, dpkg, APK, and RPM detection
+- **Packages** — Pacman, dpkg, APK, and RPM detection, including the modern /usr/lib/sysimage/rpm database location
 - **Shell** — $SHELL and exported shell-version variables when available
 - **DE/WM** — XDG_CURRENT_DESKTOP / DESKTOP_SESSION
 - **Terminal** — TERM_PROGRAM / TERM
