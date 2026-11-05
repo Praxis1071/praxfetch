@@ -16,7 +16,7 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **OS** — /etc/os-release, falling back to /usr/lib/os-release; PRETTY_NAME is preferred for display
 - **Host** — DMI vendor/product when available
 - **Kernel** — /proc/sys/kernel/osrelease
-- **Uptime** — /proc/uptime
+- **Uptime** — /proc/uptime; malformed or unavailable values are reported as unknown rather than a fabricated zero
 - **Load Average** — /proc/loadavg
 - **Packages** — Pacman, dpkg, APK, and RPM detection, including the modern /usr/lib/sysimage/rpm database location
 - **Shell** — $SHELL and exported shell-version variables when available
@@ -26,7 +26,7 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **CPU Temperature** — prefers CPU package/die readings, ignores hwmon channels marked faulty, excludes AMD Tctl-only control readings from physical temperature, and falls back to matching CPU thermal zones
 - **Memory** — /proc/meminfo
 - **Swap** — /proc/meminfo
-- **Mounted Storage** — parses /proc/self/mountinfo, decodes escaped mount paths, excludes pseudo, remote, FUSE, and overlay filesystems, deduplicates bind mounts by major:minor, and uses POSIX statvfs() to aggregate accessible filesystem capacity without subprocesses
+- **Mounted Storage** — parses /proc/self/mountinfo as raw bytes, decodes the kernel-defined escaped mount paths, and preserves non-UTF-8 Unix path bytes, excludes pseudo, remote, FUSE, and overlay filesystems, deduplicates bind mounts by major:minor, and uses POSIX statvfs() to aggregate accessible filesystem capacity without subprocesses
 - **Battery** — /sys/class/power_supply/BAT* when available; preserves charging, discharging, full, and not-charging states, and avoids mixing incompatible energy/charge units and rejects invalid capacity weights when aggregating multiple batteries
 - **GPU** — Linux DRM/sysfs card devices and kernel driver; resolves PCI vendor/device IDs through the locally installed pci.ids database when available, with readable vendor/ID fallback
 - **Display** — connected DRM connector names; active resolution is not inferred from the list of supported modes exposed by sysfs
