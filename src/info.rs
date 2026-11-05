@@ -791,8 +791,7 @@ fn parse_meminfo_value(value: &str) -> Option<u64> {
     (fields.next()? == "kB" && fields.next().is_none()).then_some(amount)
 }
 
-fn read_memory_and_swap() -> (MemoryInfo, SwapInfo) {
-    let text = fs::read_to_string("/proc/meminfo").unwrap_or_default();
+fn parse_meminfo(text: &str) -> (MemoryInfo, SwapInfo) {
     let mut memory = MemoryInfo::default();
     let mut swap = SwapInfo::default();
 
@@ -811,6 +810,11 @@ fn read_memory_and_swap() -> (MemoryInfo, SwapInfo) {
     }
 
     (memory, swap)
+}
+
+fn read_memory_and_swap() -> (MemoryInfo, SwapInfo) {
+    let text = fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    parse_meminfo(&text)
 }
 
 fn read_load_avg() -> Option<(f64, f64, f64)> {
@@ -1431,7 +1435,7 @@ mod tests {
     }
 
     #[test]
-    fn cpu_temperature_parser_rejects_invalid_and_voltage_like_values() {
+    fn cpu_temperature_parser_rejects_invalid_values() {
         assert_eq!(parse_temperature_millidegrees("42000"), Some(42.0));
         assert_eq!(parse_temperature_millidegrees("150001"), None);
         assert_eq!(parse_temperature_millidegrees("1500"), Some(1.5));
@@ -1478,29 +1482,15 @@ mod tests {
     }
 
     #[test]
+    #[test]
     fn meminfo_parser_preserves_missing_and_rejects_malformed_values() {
         assert_eq!(parse_meminfo_value("1024 kB"), Some(1024));
         assert_eq!(parse_meminfo_value("1024 MB"), None);
         assert_eq!(parse_meminfo_value("not-a-number kB"), None);
         assert_eq!(parse_meminfo_value("1024 kB trailing"), None);
 
-        let (memory, swap) = {
-            let text = "MemTotal: 8192 kB\\nSwapTotal: 0 kB\\nSwapFree: 0 kB\\n";
-            let mut memory = MemoryInfo::default();
-            let mut swap = SwapInfo::default();
-            for line in text.lines() {
-                if let Some((key, value)) = line.split_once(':') {
-                    match key {
-                        "MemTotal" => memory.total_kb = parse_meminfo_value(value),
-                        "MemAvailable" => memory.available_kb = parse_meminfo_value(value),
-                        "SwapTotal" => swap.total_kb = parse_meminfo_value(value),
-                        "SwapFree" => swap.free_kb = parse_meminfo_value(value),
-                        _ => {}
-                    }
-                }
-            }
-            (memory, swap)
-        };
+        let fixture = "MemTotal: 8192 kB\nSwapTotal: 0 kB\nSwapFree: 0 kB\n";
+        let (memory, swap) = parse_meminfo(fixture);
         assert_eq!(memory.total_kb, Some(8192));
         assert_eq!(memory.available_kb, None);
         assert_eq!(swap.total_kb, Some(0));
