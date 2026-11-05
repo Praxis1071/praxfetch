@@ -1704,8 +1704,20 @@ not a valid mount line\n\
     #[test]
     fn storage_filter_excludes_remote_userspace_and_overlay_mounts() {
         for fs_type in [
-            "nfs", "nfs4", "cifs", "smb3", "9p", "ceph", "afs", "glusterfs",
-            "lustre", "davfs", "orangefs", "fuse", "fuse.sshfs", "fuse.rclone",
+            "nfs",
+            "nfs4",
+            "cifs",
+            "smb3",
+            "9p",
+            "ceph",
+            "afs",
+            "glusterfs",
+            "lustre",
+            "davfs",
+            "orangefs",
+            "fuse",
+            "fuse.sshfs",
+            "fuse.rclone",
             "overlay",
         ] {
             assert!(is_nonlocal_or_stacked_filesystem(fs_type), "{fs_type}");
