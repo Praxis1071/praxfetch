@@ -891,44 +891,73 @@ fn read_load_avg() -> Option<(f64, f64, f64)> {
         .then_some(values)
 }
 
+fn count_package_directories(path: &Path) -> Option<usize> {
+    fs::read_dir(path).ok()?.try_fold(0usize, |count, entry| {
+        let entry = entry.ok()?;
+        let is_directory = entry.file_type().ok()?.is_dir();
+        if is_directory {
+            count.checked_add(1)
+        } else {
+            Some(count)
+        }
+    })
+}
+
+fn count_dpkg_installed(text: &str) -> usize {
+    let mut count = 0usize;
+    let mut installed = false;
+
+    for line in text.lines() {
+        let line = line.trim_end_matches('\r');
+        if line.is_empty() {
+            if installed {
+                count += 1;
+                installed = false;
+            }
+        } else if line == "Status: install ok installed" {
+            installed = true;
+        }
+    }
+
+    if installed {
+        count += 1;
+    }
+    count
+}
+
+fn count_apk_packages(text: &str) -> usize {
+    text.lines()
+        .filter_map(|line| line.strip_prefix("P:"))
+        .filter(|name| !name.trim().is_empty())
+        .count()
+}
+
 fn read_packages() -> PackageInfo {
-    if let Ok(entries) = fs::read_dir("/var/lib/pacman/local") {
+    let pacman_db = Path::new("/var/lib/pacman/local");
+    if pacman_db.exists() {
         return PackageInfo {
             manager: "pacman".into(),
-            count: Some(
-                entries
-                    .filter_map(Result::ok)
-                    .filter(|entry| entry.file_type().map(|t| t.is_dir()).unwrap_or(false))
-                    .count(),
-            ),
+            count: count_package_directories(pacman_db),
         };
     }
 
-    if Path::new("/var/lib/dpkg/status").exists() {
-        let text = read("/var/lib/dpkg/status");
+    let dpkg_status = Path::new("/var/lib/dpkg/status");
+    if dpkg_status.exists() {
         return PackageInfo {
             manager: "dpkg".into(),
-            count: Some(
-                text.split("\n\n")
-                    .filter(|paragraph| {
-                        paragraph
-                            .lines()
-                            .any(|line| line.trim() == "Status: install ok installed")
-                    })
-                    .count(),
-            ),
+            count: fs::read_to_string(dpkg_status)
+                .ok()
+                .map(|text| count_dpkg_installed(&text)),
         };
     }
 
-    if Path::new("/lib/apk/db/installed").exists() {
+    let apk_db = Path::new("/lib/apk/db/installed");
+    if apk_db.exists() {
         return PackageInfo {
             manager: "apk".into(),
-            count: Some(
-                read("/lib/apk/db/installed")
-                    .lines()
-                    .filter(|line| line.starts_with("P:"))
-                    .count(),
-            ),
+            count: fs::read_to_string(apk_db)
+                .ok()
+                .map(|text| count_apk_packages(&text)),
         };
     }
 
@@ -1798,6 +1827,23 @@ not a valid mount line\n\
             ..Default::default()
         });
         assert_eq!(value, "Example Linux Rolling");
+    }
+
+    #[test]
+    fn dpkg_package_counter_handles_lf_crlf_and_incomplete_stanzas() {
+        let fixture = "Package: alpha\nStatus: install ok installed\n\nPackage: beta\nStatus: deinstall ok config-files\n\nPackage: gamma\nStatus: install ok installed";
+        assert_eq!(count_dpkg_installed(fixture), 2);
+
+        let crlf = "Package: alpha\r\nStatus: install ok installed\r\n\r\nPackage: beta\r\nStatus: install ok installed\r\n";
+        assert_eq!(count_dpkg_installed(crlf), 2);
+        assert_eq!(count_dpkg_installed("malformed stanza without status"), 0);
+    }
+
+    #[test]
+    fn apk_package_counter_requires_a_nonempty_package_name() {
+        let fixture = "C:Q1\nP:busybox\nV:1.0\n\nP:musl\nV:1.2\nP:\n";
+        assert_eq!(count_apk_packages(fixture), 2);
+        assert_eq!(count_apk_packages("not an installed package"), 0);
     }
 
     #[test]
