@@ -1,4 +1,8 @@
-use std::{collections::{BTreeMap, BTreeSet}, env, fs, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    env, fs,
+    path::Path,
+};
 
 #[derive(Default)]
 pub struct OsInfo {
@@ -137,7 +141,7 @@ fn read_gpu() -> GpuInfo {
 
         let driver = fs::read_link(device.join("driver"))
             .ok()
-            .and_then(|path| path.file_name().map(|value| value.to_string_lossy().into_owned()))
+            .and_then(|path| {\n                path.file_name()\n                    .map(|value| value.to_string_lossy().into_owned())\n            })
             .unwrap_or_default();
 
         let mut pci_lookup = None;
@@ -232,13 +236,12 @@ fn parse_pci_ids(
                 current_vendor.clear();
                 continue;
             };
-            current_vendor = if vendor_id.len() == 4
-                && vendor_id.bytes().all(|byte| byte.is_ascii_hexdigit())
-            {
-                vendor_id.to_ascii_lowercase()
-            } else {
-                String::new()
-            };
+            current_vendor =
+                if vendor_id.len() == 4 && vendor_id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                    vendor_id.to_ascii_lowercase()
+                } else {
+                    String::new()
+                };
         }
 
         if names.len() == wanted.len() {
@@ -1136,11 +1139,11 @@ mod tests {
         .collect();
         let names = parse_pci_ids(database, &wanted);
         assert_eq!(
-            names.get(&("8086".into(), "1234".into())).map(String::as_str),
+            names\n                .get(&("8086".into(), "1234".into()))\n                .map(String::as_str),
             Some("Example Integrated Graphics")
         );
         assert_eq!(
-            names.get(&("1002".into(), "abcd".into())).map(String::as_str),
+            names\n                .get(&("1002".into(), "abcd".into()))\n                .map(String::as_str),
             Some("Example Radeon Device")
         );
         assert_eq!(names.len(), 2);
