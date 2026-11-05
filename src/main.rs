@@ -57,7 +57,7 @@ fn main() {
         ("Shell", info::shell(&s.shell, &s.shell_version)),
         ("DE/WM", s.desktop),
         ("Terminal", s.terminal),
-        ("CPU", format!("{} ({} cores)", s.cpu.model, s.cpu.cores)),
+        ("CPU", {\n            let topology = match s.cpu.physical_cores {\n                Some(cores) if s.cpu.threads > 0 => format!("{cores} cores / {} threads", s.cpu.threads),\n                Some(cores) => format!("{cores} cores"),\n                None if s.cpu.threads > 0 => format!("{} threads", s.cpu.threads),\n                None => "topology unavailable".to_owned(),\n            };\n            format!("{} ({topology})", s.cpu.model)\n        }),
         ("Memory", info::memory(&s.memory)),
         ("Swap", info::swap(&s.swap)),
         ("Disk", info::disk(&s.disk)),
