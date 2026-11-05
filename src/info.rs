@@ -1013,12 +1013,11 @@ fn filesystem_capacity(path: &Path) -> Option<(u64, u64)> {
     } else {
         u64::try_from(u128::from(stat.f_bsize)).ok()?
     };
-    let total = u64::try_from(u128::from(stat.f_blocks).checked_mul(u128::from(block_size))?)
-        .ok()?;
-    let available =
-        u64::try_from(u128::from(stat.f_bavail).checked_mul(u128::from(block_size))?)
-            .ok()?
-            .min(total);
+    let total =
+        u64::try_from(u128::from(stat.f_blocks).checked_mul(u128::from(block_size))?).ok()?;
+    let available = u64::try_from(u128::from(stat.f_bavail).checked_mul(u128::from(block_size))?)
+        .ok()?
+        .min(total);
 
     (total > 0).then_some((total, available))
 }
