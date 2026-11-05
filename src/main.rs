@@ -51,7 +51,7 @@ fn main() {
         ("OS", os),
         ("Host", host),
         ("Kernel", s.kernel),
-        ("Uptime", info::uptime(s.uptime)),
+        ("Uptime", s.uptime.map(info::uptime).unwrap_or_else(|| "unknown".to_owned())),
         ("Load Avg", load),
         ("Packages", packages),
         ("Shell", info::shell(&s.shell, &s.shell_version)),
