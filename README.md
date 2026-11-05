@@ -22,7 +22,7 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **Shell** — $SHELL and exported shell-version variables when available
 - **DE/WM** — XDG_CURRENT_DESKTOP / DESKTOP_SESSION
 - **Terminal** — TERM_PROGRAM / TERM
-- **CPU** — /proc/cpuinfo with sysfs CPU-range fallback
+- **CPU** — model from /proc/cpuinfo; online logical threads from the kernel CPU list; physical cores from the stable sysfs core sibling topology when the kernel exposes reliable topology data
 - **Memory** — /proc/meminfo
 - **Swap** — /proc/meminfo
 - **Root Disk** — POSIX statvfs("/") with no subprocess
