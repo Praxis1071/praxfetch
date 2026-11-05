@@ -5,6 +5,7 @@ pub struct OsInfo {
     pub id: String,
     pub id_like: String,
     pub name: String,
+    pub pretty_name: String,
     pub version: String,
     pub build_id: String,
 }
@@ -158,16 +159,19 @@ fn read_display() -> DisplayInfo {
         return DisplayInfo::default();
     };
 
+    let entries: Vec<_> = entries.filter_map(Result::ok).collect();
     let mut devices = Vec::new();
+    let mut unknown = Vec::new();
 
-    for entry in entries.filter_map(Result::ok) {
+    for entry in entries {
         let name = entry.file_name().to_string_lossy().into_owned();
         if !name.starts_with("card") || !name.contains('-') {
             continue;
         }
 
         let base = entry.path();
-        if read_path(&base.join("status")) != "connected" {
+        let status = read_path(&base.join("status"));
+        if status != "connected" && status != "unknown" {
             continue;
         }
 
@@ -182,14 +186,35 @@ fn read_display() -> DisplayInfo {
             .map(|(_, connector)| connector.to_owned())
             .unwrap_or(name);
 
-        devices.push(DisplayDevice {
+        let device = DisplayDevice {
             connector,
             resolution,
-        });
+        };
+
+        if status == "connected" {
+            devices.push(device);
+        } else {
+            unknown.push(device);
+        }
+    }
+
+    // DRM can report "unknown" when reliable probing is unavailable.
+    // Only use those fallback connectors if no definitely connected one exists.
+    if devices.is_empty() {
+        devices = unknown;
     }
 
     devices.sort_by(|a, b| a.connector.cmp(&b.connector));
     DisplayInfo { devices }
+}
+
+fn is_physical_network_device(path: &Path) -> bool {
+    let Ok(resolved) = fs::canonicalize(path) else {
+        return false;
+    };
+
+    let path = resolved.to_string_lossy();
+    path.starts_with("/sys/devices/") && !path.starts_with("/sys/devices/virtual/")
 }
 
 fn read_network() -> NetworkInfo {
@@ -212,7 +237,7 @@ fn read_network() -> NetworkInfo {
             result.wireless += 1;
         }
 
-        if path.join("device").exists() {
+        if is_physical_network_device(&path) {
             result.physical += 1;
         } else {
             result.virtual_interfaces += 1;
@@ -270,6 +295,7 @@ fn read_os() -> OsInfo {
             "ID" => o.id = value,
             "ID_LIKE" => o.id_like = value,
             "NAME" => o.name = value,
+            "PRETTY_NAME" => o.pretty_name = value,
             "VERSION" => o.version = value,
             "BUILD_ID" => o.build_id = value,
             _ => {}
@@ -303,7 +329,11 @@ fn unescape_os_release(value: &str) -> String {
     while let Some(ch) = chars.next() {
         if ch == '\\' {
             match chars.next() {
-                Some(next) => output.push(next),
+                Some(next @ ('\\' | '"' | '$' | '`')) => output.push(next),
+                Some(next) => {
+                    output.push('\\');
+                    output.push(next);
+                }
                 None => output.push('\\'),
             }
         } else {
@@ -636,6 +666,10 @@ pub fn collect() -> SystemInfo {
 }
 
 pub fn os_label(os: &OsInfo) -> String {
+    if !os.pretty_name.is_empty() {
+        return os.pretty_name.clone();
+    }
+
     if os.name.is_empty() {
         return "unknown".to_owned();
     }
@@ -901,6 +935,17 @@ mod tests {
     }
 
     #[test]
+    fn pretty_os_name_takes_precedence() {
+        let value = os_label(&OsInfo {
+            name: "Linux".into(),
+            pretty_name: "Example Linux Rolling".into(),
+            version: "2026".into(),
+            ..Default::default()
+        });
+        assert_eq!(value, "Example Linux Rolling");
+    }
+
+    #[test]
     fn battery_without_hardware_is_none() {
         assert_eq!(battery(&BatteryInfo::default()), "none");
     }
@@ -910,5 +955,7 @@ mod tests {
         assert_eq!(parse_os_release_value("\"CachyOS 2026\""), "CachyOS 2026");
         assert_eq!(parse_os_release_value("'CachyOS'"), "CachyOS");
         assert_eq!(parse_os_release_value("\"A\\\"B\""), "A\"B");
+        assert_eq!(parse_os_release_value("\"A\\qB\""), "A\\qB");
+        assert_eq!(parse_os_release_value("\"A\\$B\""), "A$B");
     }
 }
