@@ -1015,12 +1015,12 @@ fn read_battery() -> BatteryInfo {
         if let Some(percent) = percent {
             let energy_full = fs::read_to_string(base.join("energy_full"))
                 .ok()
-                .and_then(|v| v.trim().parse::<f32>().ok())
-                .filter(|value| *value > 0.0);
+                .and_then(|v| v.trim().parse::<f64>().ok())
+                .filter(|value| value.is_finite() && *value > 0.0);
             let charge_full = fs::read_to_string(base.join("charge_full"))
                 .ok()
-                .and_then(|v| v.trim().parse::<f32>().ok())
-                .filter(|value| *value > 0.0);
+                .and_then(|v| v.trim().parse::<f64>().ok())
+                .filter(|value| value.is_finite() && *value > 0.0);
 
             batteries.push((percent, energy_full, charge_full));
         }
@@ -1069,7 +1069,7 @@ fn read_battery() -> BatteryInfo {
     }
 }
 
-fn aggregate_battery_capacity(batteries: &[(f32, Option<f32>, Option<f32>)]) -> Option<f32> {
+fn aggregate_battery_capacity(batteries: &[(f32, Option<f64>, Option<f64>)]) -> Option<f32> {
     if batteries.is_empty() {
         return None;
     }
@@ -1084,26 +1084,27 @@ fn aggregate_battery_capacity(batteries: &[(f32, Option<f32>, Option<f32>)]) -> 
 }
 
 fn weighted_battery_average(
-    batteries: &[(f32, Option<f32>, Option<f32>)],
+    batteries: &[(f32, Option<f64>, Option<f64>)],
     use_energy: bool,
 ) -> Option<f32> {
     let weights = batteries
         .iter()
         .map(|battery| if use_energy { battery.1 } else { battery.2 })
         .collect::<Option<Vec<_>>>()?;
-    let total_weight: f32 = weights.iter().sum();
+    let total_weight: f64 = weights.iter().sum();
 
-    if total_weight <= 0.0 {
+    if !total_weight.is_finite() || total_weight <= 0.0 {
         return None;
     }
 
-    let weighted_percent: f32 = batteries
+    let weighted_percent: f64 = batteries
         .iter()
         .zip(weights.iter())
-        .map(|(battery, weight)| battery.0 * weight)
+        .map(|(battery, weight)| f64::from(battery.0) * weight)
         .sum();
+    let percent = weighted_percent / total_weight;
 
-    Some(weighted_percent / total_weight)
+    percent.is_finite().then_some(percent as f32)
 }
 
 fn decode_mount_field(value: &str) -> Option<String> {
@@ -1882,6 +1883,8 @@ not a valid mount line\n\
         let charge = [(25.0, None, Some(100.0)), (75.0, None, Some(300.0))];
         assert_eq!(aggregate_battery_capacity(&charge), Some(62.5));
         assert_eq!(aggregate_battery_capacity(&[]), None);
+        let invalid_weight = [(50.0, Some(f64::INFINITY), None)];
+        assert_eq!(aggregate_battery_capacity(&invalid_weight), None);
     }
 
     #[test]
