@@ -110,6 +110,10 @@ pub struct NetworkInfo {
     pub up: usize,
 }
 
+fn read_dir_entries(path: &Path) -> Option<Vec<fs::DirEntry>> {
+    fs::read_dir(path).ok()?.collect::<Result<Vec<_>, _>>().ok()
+}
+
 fn read_path(path: &Path) -> String {
     fs::read_to_string(path)
         .map(|s| s.trim().to_owned())
@@ -132,10 +136,7 @@ fn gpu_vendor_name(vendor: &str) -> Option<&'static str> {
 }
 
 fn read_gpu() -> GpuInfo {
-    let Ok(entries) = fs::read_dir("/sys/class/drm") else {
-        return GpuInfo::default();
-    };
-    let Ok(entries) = entries.collect::<Result<Vec<_>, _>>() else {
+    let Some(entries) = read_dir_entries(Path::new("/sys/class/drm")) else {
         return GpuInfo::default();
     };
     let mut devices = Vec::new();
@@ -291,11 +292,7 @@ fn read_pci_device_names(
 }
 
 fn read_display() -> DisplayInfo {
-    let Ok(entries) = fs::read_dir("/sys/class/drm") else {
-        return DisplayInfo::default();
-    };
-
-    let Ok(entries) = entries.collect::<Result<Vec<_>, _>>() else {
+    let Some(entries) = read_dir_entries(Path::new("/sys/class/drm")) else {
         return DisplayInfo::default();
     };
     let mut devices = Vec::new();
@@ -338,11 +335,7 @@ fn read_display() -> DisplayInfo {
 }
 
 fn read_network() -> NetworkInfo {
-    let Ok(entries) = fs::read_dir("/sys/class/net") else {
-        return NetworkInfo::default();
-    };
-
-    let Ok(entries) = entries.collect::<Result<Vec<_>, _>>() else {
+    let Some(entries) = read_dir_entries(Path::new("/sys/class/net")) else {
         return NetworkInfo::default();
     };
 
@@ -559,12 +552,12 @@ fn weighted_frequency_mhz(samples: &[(u64, u128)]) -> Option<u64> {
 
 fn read_cpu_frequency_mhz() -> Option<u64> {
     let root = Path::new("/sys/devices/system/cpu/cpufreq");
-    let Ok(entries) = fs::read_dir(root) else {
+    let Some(entries) = read_dir_entries(root) else {
         return read_per_cpu_frequency_mhz();
     };
 
     let mut policy_paths: Vec<_> = entries
-        .filter_map(Result::ok)
+        .into_iter()
         .filter(|entry| entry.file_name().to_string_lossy().starts_with("policy"))
         .map(|entry| entry.path())
         .collect();
@@ -707,19 +700,19 @@ fn choose_cpu_temperature(readings: &[(String, f32)]) -> Option<f32> {
 fn read_cpu_temperature() -> TemperatureInfo {
     let mut readings = Vec::new();
 
-    if let Ok(chips) = fs::read_dir("/sys/class/hwmon") {
-        for chip in chips.filter_map(Result::ok) {
+    if let Some(chips) = read_dir_entries(Path::new("/sys/class/hwmon")) {
+        for chip in chips {
             let chip_path = chip.path();
             let chip_name = read_path(&chip_path.join("name"));
             if !is_cpu_hwmon(&chip_name) {
                 continue;
             }
 
-            let Ok(attributes) = fs::read_dir(&chip_path) else {
+            let Some(attributes) = read_dir_entries(&chip_path) else {
                 continue;
             };
 
-            for attribute in attributes.filter_map(Result::ok) {
+            for attribute in attributes {
                 let file_name = attribute.file_name().to_string_lossy().into_owned();
                 let Some(index) = file_name
                     .strip_prefix("temp")
@@ -757,8 +750,8 @@ fn read_cpu_temperature() -> TemperatureInfo {
     }
 
     if choose_cpu_temperature(&readings).is_none() {
-        if let Ok(zones) = fs::read_dir("/sys/class/thermal") {
-            for zone in zones.filter_map(Result::ok) {
+        if let Some(zones) = read_dir_entries(Path::new("/sys/class/thermal")) {
+            for zone in zones {
                 let name = zone.file_name().to_string_lossy().into_owned();
                 if !name.starts_with("thermal_zone") {
                     continue;
@@ -994,10 +987,7 @@ fn read_packages() -> PackageInfo {
 }
 
 fn read_battery() -> BatteryInfo {
-    let Ok(entries) = fs::read_dir("/sys/class/power_supply") else {
-        return BatteryInfo::default();
-    };
-    let Ok(entries) = entries.collect::<Result<Vec<_>, _>>() else {
+    let Some(entries) = read_dir_entries(Path::new("/sys/class/power_supply")) else {
         return BatteryInfo::default();
     };
 
