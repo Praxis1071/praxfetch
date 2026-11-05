@@ -521,6 +521,9 @@ fn weighted_frequency_mhz(samples: &[(u64, u128)]) -> Option<u64> {
         },
     )?;
 
+    if total_weight == 0 {
+        return None;
+    }
     let rounded_khz = weighted_total.checked_add(total_weight.checked_mul(500)?)? / total_weight;
     u64::try_from(rounded_khz / 1000).ok()
 }
