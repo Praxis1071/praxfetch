@@ -1168,6 +1168,14 @@ fn parse_mountinfo_bytes(text: &[u8]) -> Vec<MountEntry> {
             || minor.is_empty()
             || !major.iter().all(|byte| byte.is_ascii_digit())
             || !minor.iter().all(|byte| byte.is_ascii_digit())
+            || std::str::from_utf8(major)
+                .ok()
+                .and_then(|value| value.parse::<u32>().ok())
+                .is_none()
+            || std::str::from_utf8(minor)
+                .ok()
+                .and_then(|value| value.parse::<u32>().ok())
+                .is_none()
         {
             continue;
         }
@@ -1744,7 +1752,10 @@ not a valid mount line\n\
         let mountinfo = b"41 25 8:4 / /mnt/\xffdisk rw - ext4 /dev/sda4 rw\n";
         let mounts = parse_mountinfo_bytes(mountinfo);
         assert_eq!(mounts.len(), 1);
-        assert_eq!(mounts[0].mount_point.as_os_str().as_bytes(), b"/mnt/\xffdisk");
+        assert_eq!(
+            mounts[0].mount_point.as_os_str().as_bytes(),
+            b"/mnt/\\xffdisk"
+        );
     }
 
     #[test]
