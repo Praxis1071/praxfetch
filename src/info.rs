@@ -586,11 +586,16 @@ fn read_battery() -> BatteryInfo {
 
     for entry in entries.filter_map(Result::ok) {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if !name.starts_with("BAT") {
+        let base = entry.path();
+        let supply_type = read_path(&base.join("type"));
+        if supply_type != "Battery" && !name.starts_with("BAT") {
             continue;
         }
 
-        let base = entry.path();
+        if read_path(&base.join("present")) == "0" {
+            continue;
+        }
+
         let percent = fs::read_to_string(base.join("capacity"))
             .ok()
             .and_then(|v| v.trim().parse::<f32>().ok())
