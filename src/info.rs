@@ -426,16 +426,18 @@ fn read_physical_core_count(online_cpus: &[usize]) -> Option<usize> {
         let package_id = read_path(&Path::new(&topology).join("physical_package_id"))
             .parse::<i32>()
             .ok()?;
-        let core_id = read_path(&Path::new(&topology).join("core_id"))
-            .parse::<i32>()
-            .ok()?;
 
-        // Negative IDs are kernel fallback values, not reliable topology data.
-        if package_id < 0 || core_id < 0 {
+        // A negative package ID is the kernel's "topology unavailable" fallback.
+        if package_id < 0 {
             return None;
         }
 
-        cores.insert((package_id, core_id));
+        let sibling_cpus = parse_cpu_list(&read_path(&Path::new(&topology).join("core_cpus_list")));
+        if sibling_cpus.is_empty() || !sibling_cpus.contains(cpu) {
+            return None;
+        }
+
+        cores.insert((package_id, sibling_cpus));
     }
 
     if cores.is_empty() {
