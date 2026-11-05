@@ -390,7 +390,11 @@ fn read_cpu() -> CpuInfo {
 fn parse_cpu_list(value: &str) -> Vec<usize> {
     let mut cpus = BTreeSet::new();
 
-    for item in value.split(',').map(str::trim).filter(|item| !item.is_empty()) {
+    for item in value
+        .split(',')
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+    {
         let mut bounds = item.split('-');
         let Some(start) = bounds.next().and_then(|part| part.parse::<usize>().ok()) else {
             continue;
