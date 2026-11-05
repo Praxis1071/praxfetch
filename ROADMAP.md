@@ -3,7 +3,7 @@
 > **Purpose:** Build praxfetch into a dependable, fast, maintainable Linux system-information CLI without sacrificing its defining constraints.
 >
 > **Last reviewed:** 2026-11-05  
-> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 40 automated tests passing in GitHub Actions run [#131](https://github.com/Praxis1071/praxfetch/actions/runs/41991791617).
+> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 41 automated tests passing in GitHub Actions run [#132](https://github.com/Praxis1071/praxfetch/actions/runs/41991940742).
 
 This is the project's source of truth for development priorities. Keep it updated as work lands. A checkbox is only marked complete after the implementation is present, relevant tests pass, documentation is updated, and the latest applicable CI run succeeds.
 
@@ -59,7 +59,7 @@ praxfetch should be a small, trustworthy, Linux-native alternative in the fastfe
 - [x] README documents the runtime constraints, build commands, current modules, and the 5 ms goal as a target rather than a guarantee.
 - [x] GitHub Actions checks formatting, compilation, tests, Clippy warnings, and release compilation.
 - [x] Automated tests cover important parsing and edge cases, including OS metadata, CPU topology/frequency, CPU temperature selection, PCI IDs, mountinfo, battery aggregation, and formatting.
-- [x] Latest verified baseline: 40 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #131](https://github.com/Praxis1071/praxfetch/actions/runs/41991791617).
+- [x] Latest verified baseline: 41 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #132](https://github.com/Praxis1071/praxfetch/actions/runs/41991940742).
 
 ## 3. Prioritized implementation roadmap
 
