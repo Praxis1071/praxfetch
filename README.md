@@ -25,7 +25,7 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **CPU** — model from /proc/cpuinfo; online logical threads and physical cores from kernel topology; frequency prefers hardware-reported CPUFreq measurements and clearly falls back to scaling_cur_freq only when needed
 - **Memory** — /proc/meminfo
 - **Swap** — /proc/meminfo
-- **Root Disk** — POSIX statvfs("/") with no subprocess
+- **Mounted Storage** — parses /proc/self/mountinfo, decodes escaped mount paths, excludes pseudo-filesystems, deduplicates bind mounts by major:minor, and uses POSIX statvfs() to aggregate accessible filesystem capacity without subprocesses
 - **Battery** — /sys/class/power_supply/BAT* when available; preserves charging, discharging, full, and not-charging states, and avoids mixing incompatible energy/charge units when aggregating multiple batteries
 - **GPU** — Linux DRM/sysfs card devices and kernel driver; resolves PCI vendor/device IDs through the locally installed pci.ids database when available, with readable vendor/ID fallback
 - **Display** — all connected DRM connectors and their reported native modes
@@ -101,7 +101,7 @@ This mirrors a principle used by mature fetch tools such as Fastfetch: detection
 
 ### 0.2.x — Hardware
 - Richer GPU identification and multi-GPU handling
-- Multi-display and connector edge cases
+- Multi-display and connector edge cases\n- Mounted filesystem parsing, bind-mount deduplication, and statvfs edge-case coverage
 - More detailed battery/power information
 - More precise network interface classification
 
