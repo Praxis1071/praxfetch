@@ -3,7 +3,7 @@
 > **Purpose:** Build praxfetch into a dependable, fast, maintainable Linux system-information CLI without sacrificing its defining constraints.
 >
 > **Last reviewed:** 2026-11-05  
-> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 27 automated tests passing in GitHub Actions run [#81](https://github.com/Praxis1071/praxfetch/actions/runs/41986049328).
+> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 32 automated tests passing in GitHub Actions run [#91](https://github.com/Praxis1071/praxfetch/actions/runs/41987204849) before the current audit follow-up.
 
 This is the project's source of truth for development priorities. Keep it updated as work lands. A checkbox is only marked complete after the implementation is present, relevant tests pass, documentation is updated, and the latest applicable CI run succeeds.
 
@@ -59,7 +59,7 @@ praxfetch should be a small, trustworthy, Linux-native alternative in the fastfe
 - [x] README documents the runtime constraints, build commands, current modules, and the 5 ms goal as a target rather than a guarantee.
 - [x] GitHub Actions checks formatting, compilation, tests, Clippy warnings, and release compilation.
 - [x] Automated tests cover important parsing and edge cases, including OS metadata, CPU topology/frequency, CPU temperature selection, PCI IDs, mountinfo, battery aggregation, and formatting.
-- [x] Latest verified baseline: 27 tests passed; format, compile, Clippy, and release build passed in [Actions run #81](https://github.com/Praxis1071/praxfetch/actions/runs/41986049328).
+- [x] Latest verified baseline before the current audit follow-up: 32 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #91](https://github.com/Praxis1071/praxfetch/actions/runs/41987204849).
 
 ## 3. Prioritized implementation roadmap
 
@@ -75,8 +75,18 @@ The phases are ordered by dependency and risk, not by how visually impressive a 
 - [ ] Revisit storage aggregation semantics: distinguish filesystems/mounts from physical disks; avoid double-counting subvolumes, overlay mounts, network mounts, and unusual device mappings.
 - [ ] Add fixture-based parser tests for malformed, truncated, duplicate, reordered, and missing fields.
 - [ ] Add regression tests for multiple GPUs, displays, batteries, network interfaces, and CPUFreq policies.
-- [ ] Add a runtime source audit/test that prevents accidental introduction of subprocess APIs or network clients.
+- [x] Add a CI source audit that flags common subprocess APIs, socket APIs, and direct network-client dependencies; treat it as defense-in-depth rather than a formal proof.
 - [ ] Verify output on at least one physical Intel system, one AMD system, a VM, and a minimal/container-like Linux environment where practical.
+
+**Audit fixes completed on 2026-11-05**
+
+- [x] Stop presenting the first DRM connector `modes` entry as the active display resolution; sysfs exposes supported modes, not necessarily the currently selected mode.
+- [x] Preserve missing `MemAvailable` and `SwapFree` values as unavailable instead of reporting zero available memory or 100% usage.
+- [x] Ignore hwmon temperature channels marked faulty and include the documented Intel PECI CPU temperature driver.
+- [x] Do not present AMD `Tctl`-only control readings as physical CPU die temperature; prefer physical die/package readings when available.
+- [x] Remove the DMI computer product name as a fallback CPU model, avoiding laptop/desktop model names being mislabeled as processors.
+- [x] Add fixture-based `/proc/meminfo` parsing tests and regression tests for missing values, hwmon faults, temperature boundaries, and display connector-only output.
+- [x] Add a CI source audit for common runtime subprocess and network APIs.
 
 **Exit criteria:** no known incorrect labels or silent parser panics; core detector behavior is covered by deterministic tests; runtime invariants are demonstrably preserved.
 
@@ -211,6 +221,12 @@ Use primary documentation first and revisit these links when implementing the re
 - [Linux procfs documentation — including mountinfo format](https://docs.kernel.org/7.0/filesystems/proc.html)
 - [Linux CPUFreq policy interface](https://docs.kernel.org/admin-guide/pm/cpufreq.html)
 - [Linux thermal sysfs interface](https://docs.kernel.org/driver-api/thermal/sysfs-api.html)
+- [Linux hwmon sysfs naming, temperature units, labels, and fault flags](https://docs.kernel.org/hwmon/sysfs-interface.html)
+- [Linux Intel coretemp driver and package sensor semantics](https://docs.kernel.org/hwmon/coretemp.html)
+- [Linux AMD k10temp driver and Tctl/Tdie semantics](https://docs.kernel.org/hwmon/k10temp.html)
+- [Linux PECI CPU temperature driver](https://docs.kernel.org/hwmon/peci-cputemp.html)
+- [Linux DRM/KMS connector mode semantics](https://docs.kernel.org/gpu/drm-kms.html)
+- [Linux /proc/meminfo field semantics](https://docs.kernel.org/7.0/filesystems/proc.html)
 - [Linux hwmon coretemp driver and package/core sensor semantics](https://docs.kernel.org/hwmon/coretemp.html)
 - [Linux hwmon sysfs naming and data formats](https://docs.kernel.org/hwmon/sysfs-interface.html)
 - [Rust Cargo profiles](https://doc.rust-lang.org/cargo/reference/profiles.html)
