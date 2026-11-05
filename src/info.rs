@@ -658,37 +658,36 @@ fn aggregate_battery_capacity(batteries: &[(f32, Option<f32>, Option<f32>)]) -> 
         return None;
     }
 
-    let weighted_average = |weight_index: usize| {
-        let total_weight: f32 = batteries
-            .iter()
-            .map(|battery| if weight_index == 1 { battery.1? } else { battery.2? })
-            .sum();
-        if total_weight <= 0.0 {
-            return None;
-        }
-
-        let weighted_percent: f32 = batteries
-            .iter()
-            .map(|battery| {
-                let weight = if weight_index == 1 { battery.1? } else { battery.2? };
-                Some(battery.0 * weight)
-            })
-            .collect::<Option<Vec<_>>>()?
-            .into_iter()
-            .sum();
-
-        Some(weighted_percent / total_weight)
-    };
-
     if batteries.iter().all(|battery| battery.1.is_some()) {
-        weighted_average(1)
+        weighted_battery_average(batteries, true)
     } else if batteries.iter().all(|battery| battery.2.is_some()) {
-        weighted_average(2)
+        weighted_battery_average(batteries, false)
     } else {
-        Some(
-            batteries.iter().map(|battery| battery.0).sum::<f32>() / batteries.len() as f32,
-        )
+        Some(batteries.iter().map(|battery| battery.0).sum::<f32>() / batteries.len() as f32)
     }
+}
+
+fn weighted_battery_average(
+    batteries: &[(f32, Option<f32>, Option<f32>)],
+    use_energy: bool,
+) -> Option<f32> {
+    let weights = batteries
+        .iter()
+        .map(|battery| if use_energy { battery.1 } else { battery.2 })
+        .collect::<Option<Vec<_>>>()?;
+    let total_weight: f32 = weights.iter().sum();
+
+    if total_weight <= 0.0 {
+        return None;
+    }
+
+    let weighted_percent: f32 = batteries
+        .iter()
+        .zip(weights.iter())
+        .map(|(battery, weight)| battery.0 * weight)
+        .sum();
+
+    Some(weighted_percent / total_weight)
 }
 
 fn read_disk() -> DiskInfo {
