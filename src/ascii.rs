@@ -15,7 +15,11 @@ pub fn logo(_os: &OsInfo) -> Vec<String> {
 }
 
 fn normalize_logo(lines: &[&str]) -> Vec<String> {
-    let width = lines.iter().map(|line| visible_width(line)).max().unwrap_or(0);
+    let width = lines
+        .iter()
+        .map(|line| visible_width(line))
+        .max()
+        .unwrap_or(0);
 
     lines
         .iter()
