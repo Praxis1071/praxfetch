@@ -69,6 +69,13 @@ fn main() {
             format!("{} ({topology})", s.cpu.model)
         }),
         (
+            "CPU Temp",
+            s.temperature
+                .cpu_celsius
+                .map(|temperature| format!("{temperature:.1} °C"))
+                .unwrap_or_else(|| "unavailable".to_owned()),
+        ),
+        (
             "CPU Freq",
             s.cpu
                 .frequency_mhz
