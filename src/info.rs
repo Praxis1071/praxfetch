@@ -506,18 +506,47 @@ fn read_cpu() -> CpuInfo {
     }
 }
 
+fn weighted_frequency_mhz(samples: &[(u64, u128)]) -> Option<u64> {
+    let (weighted_total, total_weight) = samples.iter().try_fold(
+        (0u128, 0u128),
+        |(total, weight_total), (frequency, weight)| {
+            if *frequency == 0 || *weight == 0 {
+                return None;
+            }
+            let weighted = u128::from(*frequency).checked_mul(*weight)?;
+            Some((
+                total.checked_add(weighted)?,
+                weight_total.checked_add(*weight)?,
+            ))
+        },
+    )?;
+
+    let rounded_khz = weighted_total.checked_add(total_weight.checked_mul(500)?)? / total_weight;
+    u64::try_from(rounded_khz / 1000).ok()
+}
+
 fn read_cpu_frequency_mhz() -> Option<u64> {
     let root = Path::new("/sys/devices/system/cpu/cpufreq");
     let Ok(entries) = fs::read_dir(root) else {
         return read_per_cpu_frequency_mhz();
     };
 
-    let mut policies: Vec<_> = entries
+    let mut policy_paths: Vec<_> = entries
         .filter_map(Result::ok)
         .filter(|entry| entry.file_name().to_string_lossy().starts_with("policy"))
         .map(|entry| entry.path())
         .collect();
-    policies.sort();
+    policy_paths.sort();
+
+    // affected_cpus is the online CPU set for a policy. Ignore empty/offline
+    // policies rather than assigning them a fabricated weight of one.
+    let policies: Vec<_> = policy_paths
+        .into_iter()
+        .filter_map(|path| {
+            let weight = parse_cpu_list(&read_path(&path.join("affected_cpus"))).len() as u128;
+            (weight > 0).then_some((path, weight))
+        })
+        .collect();
 
     if policies.is_empty() {
         return read_per_cpu_frequency_mhz();
@@ -526,11 +555,10 @@ fn read_cpu_frequency_mhz() -> Option<u64> {
     // Prefer hardware-reported averages/current values. scaling_cur_freq is
     // only a last resort because it can represent the last requested P-state.
     for attribute in ["cpuinfo_avg_freq", "cpuinfo_cur_freq", "scaling_cur_freq"] {
-        let mut weighted_total = 0u128;
-        let mut total_weight = 0u128;
+        let mut samples = Vec::with_capacity(policies.len());
         let mut complete = true;
 
-        for policy in &policies {
+        for (policy, weight) in &policies {
             let frequency = read_path(&policy.join(attribute))
                 .parse::<u64>()
                 .ok()
@@ -539,16 +567,13 @@ fn read_cpu_frequency_mhz() -> Option<u64> {
                 complete = false;
                 break;
             };
-
-            let weight = parse_cpu_list(&read_path(&policy.join("affected_cpus")))
-                .len()
-                .max(1) as u128;
-            weighted_total += frequency as u128 * weight;
-            total_weight += weight;
+            samples.push((frequency, *weight));
         }
 
-        if complete && total_weight > 0 {
-            return Some(((weighted_total / total_weight + 500) / 1000) as u64);
+        if complete {
+            if let Some(frequency) = weighted_frequency_mhz(&samples) {
+                return Some(frequency);
+            }
         }
     }
 
@@ -1484,6 +1509,20 @@ mod tests {
         assert!(is_cpu_hwmon("zenpower"));
         assert!(!is_cpu_hwmon("amdgpu"));
         assert!(!is_cpu_hwmon("nvme"));
+    }
+
+    #[test]
+    fn cpu_frequency_policy_average_uses_online_cpu_weights() {
+        assert_eq!(
+            weighted_frequency_mhz(&[(3_000_000, 2), (1_000_000, 1)]),
+            Some(2_333)
+        );
+        assert_eq!(weighted_frequency_mhz(&[(3_000_000, 0)]), None);
+        assert_eq!(weighted_frequency_mhz(&[]), None);
+        assert_eq!(
+            weighted_frequency_mhz(&[(u64::MAX, u128::MAX)]),
+            None
+        );
     }
 
     #[test]
