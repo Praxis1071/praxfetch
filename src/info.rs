@@ -727,7 +727,7 @@ fn read_cpu_temperature() -> TemperatureInfo {
         }
     }
 
-    if readings.is_empty() {
+    if choose_cpu_temperature(&readings).is_none() {
         if let Ok(zones) = fs::read_dir("/sys/class/thermal") {
             for zone in zones.filter_map(Result::ok) {
                 let name = zone.file_name().to_string_lossy().into_owned();
@@ -1503,6 +1503,8 @@ mod tests {
         assert_eq!(choose_cpu_temperature(&amd), Some(72.0));
         let core_fallback = vec![("Tctl".into(), 80.0), ("Core 0".into(), 72.0)];
         assert_eq!(choose_cpu_temperature(&core_fallback), Some(72.0));
+        let thermal_fallback = vec![("Tctl".into(), 80.0), ("x86_pkg_temp".into(), 69.0)];
+        assert_eq!(choose_cpu_temperature(&thermal_fallback), Some(69.0));
     }
 
     #[test]
