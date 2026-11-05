@@ -671,7 +671,7 @@ fn read_cpu_temperature() -> TemperatureInfo {
                 }
 
                 let sensor_prefix = format!("temp{index}");
-                if sensor_has_fault(&read_path(&chip_path.join(format!("{sensor_prefix}_fault"))) {
+                if sensor_has_fault(&read_path(&chip_path.join(format!("{sensor_prefix}_fault")))) {
                     continue;
                 }
 
