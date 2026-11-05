@@ -3,7 +3,7 @@ use colored::Colorize;
 use crate::info::OsInfo;
 
 pub fn logo(_os: &OsInfo) -> Vec<String> {
-    normalize_logo(&[
+    [
         "       .--.",
         "      |o_o |",
         "      |:_/ |",
@@ -11,24 +11,10 @@ pub fn logo(_os: &OsInfo) -> Vec<String> {
         "    (|     | )",
         "   /'\\_   _/\\",
         "   \\___)=(___/",
-    ])
-}
-
-fn normalize_logo(lines: &[&str]) -> Vec<String> {
-    let width = lines
-        .iter()
-        .map(|line| visible_width(line))
-        .max()
-        .unwrap_or(0);
-
-    lines
-        .iter()
-        .map(|line| {
-            let current = visible_width(line);
-            let pad = width.saturating_sub(current);
-            format!("{}{}", line, " ".repeat(pad))
-        })
-        .collect()
+    ]
+    .iter()
+    .map(|line| (*line).to_owned())
+    .collect()
 }
 
 /// Return the terminal-column width of the built-in ASCII logo.
