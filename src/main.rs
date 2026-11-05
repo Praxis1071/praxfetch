@@ -68,6 +68,13 @@ fn main() {
             };
             format!("{} ({topology})", s.cpu.model)
         }),
+        (
+            "CPU Freq",
+            s.cpu
+                .frequency_mhz
+                .map(|frequency| format!("{:.2} GHz", frequency as f64 / 1000.0))
+                .unwrap_or_else(|| "unavailable".to_owned()),
+        ),
         ("Memory", info::memory(&s.memory)),
         ("Swap", info::swap(&s.swap)),
         ("Disk", info::disk(&s.disk)),
