@@ -597,6 +597,10 @@ fn parse_temperature_millidegrees(value: &str) -> Option<f32> {
     Some(millidegrees as f32 / 1000.0)
 }
 
+fn sensor_has_fault(value: &str) -> bool {
+    value.trim() == "1"
+}
+
 fn is_cpu_hwmon(name: &str) -> bool {
     let name = name.to_ascii_lowercase();
     [
@@ -667,7 +671,7 @@ fn read_cpu_temperature() -> TemperatureInfo {
                 }
 
                 let sensor_prefix = format!("temp{index}");
-                if read_path(&chip_path.join(format!("{sensor_prefix}_fault"))) == "1" {
+                if sensor_has_fault(&read_path(&chip_path.join(format!("{sensor_prefix}_fault"))) {
                     continue;
                 }
 
@@ -1482,7 +1486,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn meminfo_parser_preserves_missing_and_rejects_malformed_values() {
         assert_eq!(parse_meminfo_value("1024 kB"), Some(1024));
         assert_eq!(parse_meminfo_value("1024 MB"), None);
@@ -1520,6 +1523,13 @@ mod tests {
     #[test]
     fn cpu_hwmon_filter_includes_peci_cpu_sensors() {
         assert!(is_cpu_hwmon("peci_cputemp"));
+    }
+
+    #[test]
+    fn hwmon_fault_flag_marks_sensor_unreliable() {
+        assert!(sensor_has_fault("1"));
+        assert!(!sensor_has_fault("0"));
+        assert!(!sensor_has_fault(""));
     }
 
     #[test]
