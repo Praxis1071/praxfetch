@@ -29,7 +29,7 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **Battery** — /sys/class/power_supply/BAT* when available, with capacity-aware multi-battery aggregation
 - **GPU** — Linux DRM/sysfs card devices and kernel driver, including multiple GPUs and human-readable PCI-vendor fallbacks
 - **Display** — all connected DRM connectors and their reported native modes
-- **Network** — interface count, link state, wireless count, and physical vs virtual interface classification
+- **Network** — interface count, operational link state, and wireless interface count
 
 ## ASCII logo
 
@@ -97,7 +97,7 @@ This mirrors a principle used by mature fetch tools such as Fastfetch: detection
 - Better package-manager coverage without subprocesses
 - Hardware edge-case testing and parser hardening
 - Multi-GPU, multi-display, and multi-battery regression coverage
-- Network interface classification regression coverage
+- Network interface state and wireless-detection regression coverage
 
 ### 0.2.x — Hardware
 - Richer GPU identification and multi-GPU handling
