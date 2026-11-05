@@ -44,7 +44,17 @@ pub struct PackageInfo {
 #[derive(Default)]
 pub struct BatteryInfo {
     pub percent: Option<f32>,
-    pub charging: Option<bool>,
+    pub status: BatteryStatus,
+}
+
+#[derive(Default, PartialEq, Eq)]
+pub enum BatteryStatus {
+    Charging,
+    Discharging,
+    Full,
+    NotCharging,
+    #[default]
+    Unknown,
 }
 
 #[derive(Default)]
@@ -574,6 +584,8 @@ fn read_battery() -> BatteryInfo {
     let mut fallback_count = 0u32;
     let mut any_charging = false;
     let mut any_discharging = false;
+    let mut any_not_charging = false;
+    let mut all_full = true;
 
     for entry in entries.filter_map(Result::ok) {
         let name = entry.file_name().to_string_lossy().into_owned();
@@ -612,9 +624,20 @@ fn read_battery() -> BatteryInfo {
             .map(|v| v.trim().to_ascii_lowercase())
             .as_deref()
         {
-            Some("charging") | Some("full") => any_charging = true,
-            Some("discharging") => any_discharging = true,
-            _ => {}
+            Some("charging") => {
+                any_charging = true;
+                all_full = false;
+            }
+            Some("discharging") => {
+                any_discharging = true;
+                all_full = false;
+            }
+            Some("not charging") => {
+                any_not_charging = true;
+                all_full = false;
+            }
+            Some("full") => {}
+            _ => all_full = false,
         }
     }
 
@@ -630,17 +653,21 @@ fn read_battery() -> BatteryInfo {
         return BatteryInfo::default();
     };
 
-    let charging = if any_charging {
-        Some(true)
+    let status = if any_charging {
+        BatteryStatus::Charging
     } else if any_discharging {
-        Some(false)
+        BatteryStatus::Discharging
+    } else if all_full {
+        BatteryStatus::Full
+    } else if any_not_charging {
+        BatteryStatus::NotCharging
     } else {
-        None
+        BatteryStatus::Unknown
     };
 
     BatteryInfo {
         percent: Some(percent),
-        charging,
+        status,
     }
 }
 
@@ -799,10 +826,12 @@ pub fn battery(b: &BatteryInfo) -> String {
         return "none".into();
     };
 
-    let state = match b.charging {
-        Some(true) => "charging",
-        Some(false) => "discharging",
-        None => "unknown",
+    let state = match b.status {
+        BatteryStatus::Charging => "charging",
+        BatteryStatus::Discharging => "discharging",
+        BatteryStatus::Full => "full",
+        BatteryStatus::NotCharging => "not charging",
+        BatteryStatus::Unknown => "unknown",
     };
 
     format!("{percent:.0}% ({state})")
