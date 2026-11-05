@@ -391,9 +391,13 @@ fn read(path: &str) -> String {
 }
 
 fn read_os() -> OsInfo {
-    let text = fs::read_to_string("/etc/os-release")
-        .or_else(|_| fs::read_to_string("/usr/lib/os-release"))
-        .unwrap_or_default();
+    let text = match fs::read_to_string("/etc/os-release") {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            fs::read_to_string("/usr/lib/os-release").unwrap_or_default()
+        }
+        Err(_) => String::new(),
+    };
     let mut o = OsInfo::default();
 
     for line in text.lines() {
@@ -420,21 +424,19 @@ fn read_os() -> OsInfo {
 fn parse_os_release_value(value: &str) -> String {
     let value = value.trim();
 
-    if value.len() >= 2 {
-        let bytes = value.as_bytes();
-        let quoted = (bytes[0] == b'"' && bytes[value.len() - 1] == b'"')
-            || (bytes[0] == b'\'' && bytes[value.len() - 1] == b'\'');
-
-        if quoted {
-            let inner = &value[1..value.len() - 1];
-            return unescape_os_release(inner);
-        }
+    if let Some(inner) = value.strip_prefix('"').and_then(|v| v.strip_suffix('"')) {
+        return unescape_os_release_double_quoted(inner);
     }
 
-    value.to_owned()
+    if let Some(inner) = value.strip_prefix('\'').and_then(|v| v.strip_suffix('\'')) {
+        // Single quotes preserve every character, including backslashes.
+        return inner.to_owned();
+    }
+
+    unescape_os_release_unquoted(value)
 }
 
-fn unescape_os_release(value: &str) -> String {
+fn unescape_os_release_double_quoted(value: &str) -> String {
     let mut output = String::with_capacity(value.len());
     let mut chars = value.chars();
 
@@ -446,6 +448,24 @@ fn unescape_os_release(value: &str) -> String {
                     output.push('\\');
                     output.push(next);
                 }
+                None => output.push('\\'),
+            }
+        } else {
+            output.push(ch);
+        }
+    }
+
+    output
+}
+
+fn unescape_os_release_unquoted(value: &str) -> String {
+    let mut output = String::with_capacity(value.len());
+    let mut chars = value.chars();
+
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next() {
+                Some(next) => output.push(next),
                 None => output.push('\\'),
             }
         } else {
@@ -1794,5 +1814,8 @@ not a valid mount line\n\
         assert_eq!(parse_os_release_value("\"A\\\"B\""), "A\"B");
         assert_eq!(parse_os_release_value("\"A\\qB\""), "A\\qB");
         assert_eq!(parse_os_release_value("\"A\\$B\""), "A$B");
+        assert_eq!(parse_os_release_value("'A\\\\B'"), "A\\\\B");
+        assert_eq!(parse_os_release_value("A=\\$B"), "A=$B");
+        assert_eq!(parse_os_release_value("A=\\\\B"), "A=\\B");
     }
 }
