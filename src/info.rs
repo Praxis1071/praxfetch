@@ -1,7 +1,8 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    env, fs,
+    env,
     ffi::CString,
+    fs,
     os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
 };
@@ -1013,9 +1014,7 @@ fn filesystem_capacity(path: &Path) -> Option<(u64, u64)> {
         stat.f_bsize as u64
     };
     let total = (stat.f_blocks as u64).checked_mul(block_size)?;
-    let available = (stat.f_bavail as u64)
-        .checked_mul(block_size)?
-        .min(total);
+    let available = (stat.f_bavail as u64).checked_mul(block_size)?.min(total);
 
     (total > 0).then_some((total, available))
 }
