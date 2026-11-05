@@ -1146,6 +1146,7 @@ fn decode_mount_field(value: &[u8]) -> Option<PathBuf> {
     Some(PathBuf::from(OsString::from_vec(decoded)))
 }
 
+#[cfg(test)]
 fn parse_mountinfo(text: &str) -> Vec<MountEntry> {
     parse_mountinfo_bytes(text.as_bytes())
 }
