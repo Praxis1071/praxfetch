@@ -74,7 +74,6 @@ pub struct DiskInfo {
 struct MountEntry {
     device: String,
     mount_point: PathBuf,
-    fs_type: String,
 }
 
 #[derive(Default)]
@@ -963,7 +962,6 @@ fn parse_mountinfo(text: &str) -> Vec<MountEntry> {
         mounts.push(MountEntry {
             device: device.to_owned(),
             mount_point: PathBuf::from(mount_point),
-            fs_type: fs_type.to_owned(),
         });
     }
 
@@ -1032,13 +1030,14 @@ fn read_disk() -> DiskInfo {
     for mount in parse_mountinfo(&mountinfo) {
         // Bind mounts and multiple views of the same filesystem share the
         // same major:minor device number; count their capacity only once.
-        if !seen_devices.insert(mount.device) {
+        if seen_devices.contains(&mount.device) {
             continue;
         }
 
         let Some((total, available)) = filesystem_capacity(&mount.mount_point) else {
             continue;
         };
+        seen_devices.insert(mount.device);
 
         result.total_bytes = result.total_bytes.saturating_add(total);
         result.available_bytes = result.available_bytes.saturating_add(available);
