@@ -905,7 +905,7 @@ mod tests {
     }
 
     #[test]
-    fn network_handles_physical_and_virtual_interfaces() {
+    fn network_formats_wireless_interface_count() {
         let value = network(&NetworkInfo {
             interfaces: 3,
             wireless: 1,
