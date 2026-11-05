@@ -578,10 +578,7 @@ fn read_battery() -> BatteryInfo {
         return BatteryInfo::default();
     };
 
-    let mut weighted_percent = 0.0f32;
-    let mut total_weight = 0.0f32;
-    let mut fallback_sum = 0.0f32;
-    let mut fallback_count = 0u32;
+    let mut batteries = Vec::new();
     let mut any_charging = false;
     let mut any_discharging = false;
     let mut any_not_charging = false;
@@ -600,23 +597,16 @@ fn read_battery() -> BatteryInfo {
             .filter(|v| (0.0..=100.0).contains(v));
 
         if let Some(percent) = percent {
-            let full = ["energy_full", "charge_full"]
-                .iter()
-                .filter_map(|key| {
-                    fs::read_to_string(base.join(key))
-                        .ok()
-                        .and_then(|v| v.trim().parse::<f32>().ok())
-                        .filter(|v| *v > 0.0)
-                })
-                .next();
+            let energy_full = fs::read_to_string(base.join("energy_full"))
+                .ok()
+                .and_then(|v| v.trim().parse::<f32>().ok())
+                .filter(|value| *value > 0.0);
+            let charge_full = fs::read_to_string(base.join("charge_full"))
+                .ok()
+                .and_then(|v| v.trim().parse::<f32>().ok())
+                .filter(|value| *value > 0.0);
 
-            if let Some(weight) = full {
-                weighted_percent += percent * weight;
-                total_weight += weight;
-            } else {
-                fallback_sum += percent;
-                fallback_count += 1;
-            }
+            batteries.push((percent, energy_full, charge_full));
         }
 
         match fs::read_to_string(base.join("status"))
@@ -641,15 +631,7 @@ fn read_battery() -> BatteryInfo {
         }
     }
 
-    let percent = if total_weight > 0.0 {
-        Some(weighted_percent / total_weight)
-    } else if fallback_count > 0 {
-        Some(fallback_sum / fallback_count as f32)
-    } else {
-        None
-    };
-
-    let Some(percent) = percent else {
+    let Some(percent) = aggregate_battery_capacity(&batteries) else {
         return BatteryInfo::default();
     };
 
@@ -668,6 +650,44 @@ fn read_battery() -> BatteryInfo {
     BatteryInfo {
         percent: Some(percent),
         status,
+    }
+}
+
+fn aggregate_battery_capacity(batteries: &[(f32, Option<f32>, Option<f32>)]) -> Option<f32> {
+    if batteries.is_empty() {
+        return None;
+    }
+
+    let weighted_average = |weight_index: usize| {
+        let total_weight: f32 = batteries
+            .iter()
+            .map(|battery| if weight_index == 1 { battery.1? } else { battery.2? })
+            .sum();
+        if total_weight <= 0.0 {
+            return None;
+        }
+
+        let weighted_percent: f32 = batteries
+            .iter()
+            .map(|battery| {
+                let weight = if weight_index == 1 { battery.1? } else { battery.2? };
+                Some(battery.0 * weight)
+            })
+            .collect::<Option<Vec<_>>>()?
+            .into_iter()
+            .sum();
+
+        Some(weighted_percent / total_weight)
+    };
+
+    if batteries.iter().all(|battery| battery.1.is_some()) {
+        weighted_average(1)
+    } else if batteries.iter().all(|battery| battery.2.is_some()) {
+        weighted_average(2)
+    } else {
+        Some(
+            batteries.iter().map(|battery| battery.0).sum::<f32>() / batteries.len() as f32,
+        )
     }
 }
 
@@ -1024,6 +1044,44 @@ mod tests {
             ..Default::default()
         });
         assert_eq!(value, "Example Linux Rolling");
+    }
+
+    #[test]
+    fn battery_status_distinguishes_full_from_charging() {
+        assert_eq!(
+            battery(&BatteryInfo {
+                percent: Some(100.0),
+                status: BatteryStatus::Full,
+            }),
+            "100% (full)"
+        );
+        assert_eq!(
+            battery(&BatteryInfo {
+                percent: Some(72.0),
+                status: BatteryStatus::Charging,
+            }),
+            "72% (charging)"
+        );
+        assert_eq!(
+            battery(&BatteryInfo {
+                percent: Some(72.0),
+                status: BatteryStatus::NotCharging,
+            }),
+            "72% (not charging)"
+        );
+    }
+
+    #[test]
+    fn battery_capacity_never_mixes_energy_and_charge_units() {
+        let mixed = [(50.0, Some(100.0), None), (100.0, None, Some(300.0))];
+        assert_eq!(aggregate_battery_capacity(&mixed), Some(75.0));
+
+        let energy = [(50.0, Some(100.0), None), (100.0, Some(300.0), None)];
+        assert_eq!(aggregate_battery_capacity(&energy), Some(87.5));
+
+        let charge = [(25.0, None, Some(100.0)), (75.0, None, Some(300.0))];
+        assert_eq!(aggregate_battery_capacity(&charge), Some(62.5));
+        assert_eq!(aggregate_battery_capacity(&[]), None);
     }
 
     #[test]
