@@ -633,6 +633,7 @@ fn temperature_priority(label: &str) -> u8 {
 fn choose_cpu_temperature(readings: &[(String, f32)]) -> Option<f32> {
     let best_priority = readings
         .iter()
+        .filter(|(label, _)| !label.to_ascii_lowercase().contains("tctl"))
         .map(|(label, _)| temperature_priority(label))
         .min()?;
 
@@ -1472,6 +1473,8 @@ mod tests {
 
         let amd = vec![("Tctl".into(), 80.0), ("Tdie".into(), 72.0)];
         assert_eq!(choose_cpu_temperature(&amd), Some(72.0));
+        let core_fallback = vec![("Tctl".into(), 80.0), ("Core 0".into(), 72.0)];
+        assert_eq!(choose_cpu_temperature(&core_fallback), Some(72.0));
     }
 
     #[test]
