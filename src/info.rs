@@ -874,7 +874,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[test]
     fn cpu_list_parser_deduplicates_and_ignores_invalid_ranges() {
         assert_eq!(parse_cpu_list("0-2,2,4-5,broken,8-7"), vec![0, 1, 2, 4, 5]);
     }
