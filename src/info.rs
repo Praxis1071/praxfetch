@@ -1154,7 +1154,10 @@ fn parse_mountinfo_bytes(text: &[u8]) -> Vec<MountEntry> {
     let mut mounts = Vec::new();
 
     for line in text.split(|byte| *byte == b'\n') {
-        let fields: Vec<_> = line.split_ascii_whitespace().collect();
+        let fields: Vec<_> = line
+            .split(|byte| byte.is_ascii_whitespace())
+            .filter(|field| !field.is_empty())
+            .collect();
         let Some(separator) = fields.iter().position(|field| *field == b"-") else {
             continue;
         };
