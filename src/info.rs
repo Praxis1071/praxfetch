@@ -135,11 +135,14 @@ fn read_gpu() -> GpuInfo {
     let Ok(entries) = fs::read_dir("/sys/class/drm") else {
         return GpuInfo::default();
     };
+    let Ok(entries) = entries.collect::<Result<Vec<_>, _>>() else {
+        return GpuInfo::default();
+    };
     let mut devices = Vec::new();
     let mut pending_pci_lookups = Vec::new();
     let mut wanted_ids = BTreeSet::new();
 
-    for entry in entries.filter_map(Result::ok) {
+    for entry in entries {
         let name = entry.file_name().to_string_lossy().into_owned();
         if !name.starts_with("card") || name.contains('-') {
             continue;
@@ -292,7 +295,9 @@ fn read_display() -> DisplayInfo {
         return DisplayInfo::default();
     };
 
-    let entries: Vec<_> = entries.filter_map(Result::ok).collect();
+    let Ok(entries) = entries.collect::<Result<Vec<_>, _>>() else {
+        return DisplayInfo::default();
+    };
     let mut devices = Vec::new();
     let mut unknown = Vec::new();
 
@@ -337,9 +342,13 @@ fn read_network() -> NetworkInfo {
         return NetworkInfo::default();
     };
 
+    let Ok(entries) = entries.collect::<Result<Vec<_>, _>>() else {
+        return NetworkInfo::default();
+    };
+
     let mut result = NetworkInfo::default();
 
-    for entry in entries.filter_map(Result::ok) {
+    for entry in entries {
         let name = entry.file_name().to_string_lossy().into_owned();
         if name == "lo" {
             continue;
@@ -988,6 +997,9 @@ fn read_battery() -> BatteryInfo {
     let Ok(entries) = fs::read_dir("/sys/class/power_supply") else {
         return BatteryInfo::default();
     };
+    let Ok(entries) = entries.collect::<Result<Vec<_>, _>>() else {
+        return BatteryInfo::default();
+    };
 
     let mut batteries = Vec::new();
     let mut any_charging = false;
@@ -995,7 +1007,7 @@ fn read_battery() -> BatteryInfo {
     let mut any_not_charging = false;
     let mut all_full = true;
 
-    for entry in entries.filter_map(Result::ok) {
+    for entry in entries {
         let name = entry.file_name().to_string_lossy().into_owned();
         let base = entry.path();
         let supply_type = read_path(&base.join("type"));
