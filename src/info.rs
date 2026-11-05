@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, env, fs, path::Path};
+use std::{collections::{BTreeMap, BTreeSet}, env, fs, path::Path};
 
 #[derive(Default)]
 pub struct OsInfo {
@@ -21,6 +21,7 @@ pub struct CpuInfo {
     pub model: String,
     pub physical_cores: Option<usize>,
     pub threads: usize,
+    pub frequency_mhz: Option<u64>,
 }
 
 #[derive(Default)]
@@ -118,6 +119,8 @@ fn read_gpu() -> GpuInfo {
         return GpuInfo::default();
     };
     let mut devices = Vec::new();
+    let mut pending_pci_lookups = Vec::new();
+    let mut wanted_ids = BTreeSet::new();
 
     for entry in entries.filter_map(Result::ok) {
         let name = entry.file_name().to_string_lossy().into_owned();
@@ -134,21 +137,25 @@ fn read_gpu() -> GpuInfo {
 
         let driver = fs::read_link(device.join("driver"))
             .ok()
-            .and_then(|p| p.file_name().map(|v| v.to_string_lossy().into_owned()))
+            .and_then(|path| path.file_name().map(|value| value.to_string_lossy().into_owned()))
             .unwrap_or_default();
 
+        let mut pci_lookup = None;
         if gpu_name.is_empty() {
-            let vendor = read_path(&device.join("vendor"));
-            let device_id = read_path(&device.join("device"));
+            let vendor = normalize_pci_id(&read_path(&device.join("vendor")));
+            let device_id = normalize_pci_id(&read_path(&device.join("device")));
             if !vendor.is_empty() && !device_id.is_empty() {
-                gpu_name = match gpu_vendor_name(&vendor) {
-                    Some(name) => format!("{name} GPU {device_id}"),
-                    None => format!("{vendor}:{device_id}"),
+                wanted_ids.insert((vendor.clone(), device_id.clone()));
+                gpu_name = match gpu_vendor_name(&format!("0x{vendor}")) {
+                    Some(vendor_name) => format!("{vendor_name} GPU 0x{device_id}"),
+                    None => format!("0x{vendor}:0x{device_id}"),
                 };
+                pci_lookup = Some((vendor, device_id));
             }
         }
 
         if !gpu_name.is_empty() || !driver.is_empty() {
+            let index = devices.len();
             devices.push(GpuDevice {
                 name: if gpu_name.is_empty() {
                     "unknown".into()
@@ -157,10 +164,108 @@ fn read_gpu() -> GpuInfo {
                 },
                 driver,
             });
+            if let Some((vendor, device_id)) = pci_lookup {
+                pending_pci_lookups.push((index, vendor, device_id));
+            }
+        }
+    }
+
+    if !wanted_ids.is_empty() {
+        let names = read_pci_device_names(&wanted_ids);
+        for (index, vendor, device_id) in pending_pci_lookups {
+            if let Some(model) = names.get(&(vendor.clone(), device_id.clone())) {
+                let vendor_name = gpu_vendor_name(&format!("0x{vendor}"));
+                devices[index].name = match vendor_name {
+                    Some(name) => format!("{name} {model}"),
+                    None => model.clone(),
+                };
+            }
         }
     }
 
     GpuInfo { devices }
+}
+
+fn normalize_pci_id(value: &str) -> String {
+    value
+        .trim()
+        .trim_start_matches("0x")
+        .trim_start_matches("0X")
+        .to_ascii_lowercase()
+}
+
+fn parse_pci_ids(
+    text: &str,
+    wanted: &BTreeSet<(String, String)>,
+) -> BTreeMap<(String, String), String> {
+    let mut names = BTreeMap::new();
+    let mut current_vendor = String::new();
+
+    for line in text.lines() {
+        if line.starts_with("\t\t") {
+            continue;
+        }
+
+        if let Some(device_line) = line.strip_prefix('\t') {
+            if current_vendor.is_empty() {
+                continue;
+            }
+
+            let mut fields = device_line.split_whitespace();
+            let Some(device_id) = fields.next() else {
+                continue;
+            };
+            if device_id.len() != 4 || !device_id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                continue;
+            }
+
+            let key = (current_vendor.clone(), device_id.to_ascii_lowercase());
+            if wanted.contains(&key) {
+                let name = fields.collect::<Vec<_>>().join(" ");
+                if !name.is_empty() {
+                    names.insert(key, name);
+                }
+            }
+        } else {
+            let mut fields = line.split_whitespace();
+            let Some(vendor_id) = fields.next() else {
+                current_vendor.clear();
+                continue;
+            };
+            current_vendor = if vendor_id.len() == 4
+                && vendor_id.bytes().all(|byte| byte.is_ascii_hexdigit())
+            {
+                vendor_id.to_ascii_lowercase()
+            } else {
+                String::new()
+            };
+        }
+
+        if names.len() == wanted.len() {
+            break;
+        }
+    }
+
+    names
+}
+
+fn read_pci_device_names(
+    wanted: &BTreeSet<(String, String)>,
+) -> BTreeMap<(String, String), String> {
+    for path in [
+        "/usr/share/hwdata/pci.ids",
+        "/usr/share/misc/pci.ids",
+        "/usr/share/pci.ids",
+    ] {
+        if let Ok(text) = fs::read_to_string(path) {
+            let names = parse_pci_ids(&text, wanted);
+            if !names.is_empty() {
+                return names;
+            }
+        }
+    }
+
+    BTreeMap::new()
 }
 
 fn read_display() -> DisplayInfo {
@@ -390,7 +495,88 @@ fn read_cpu() -> CpuInfo {
         model,
         physical_cores,
         threads,
+        frequency_mhz: read_cpu_frequency_mhz(),
     }
+}
+
+fn read_cpu_frequency_mhz() -> Option<u64> {
+    let root = Path::new("/sys/devices/system/cpu/cpufreq");
+    let Ok(entries) = fs::read_dir(root) else {
+        return read_per_cpu_frequency_mhz();
+    };
+
+    let mut policies: Vec<_> = entries
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_name().to_string_lossy().starts_with("policy"))
+        .map(|entry| entry.path())
+        .collect();
+    policies.sort();
+
+    if policies.is_empty() {
+        return read_per_cpu_frequency_mhz();
+    }
+
+    // Prefer hardware-reported averages/current values. scaling_cur_freq is
+    // only a last resort because it can represent the last requested P-state.
+    for attribute in ["cpuinfo_avg_freq", "cpuinfo_cur_freq", "scaling_cur_freq"] {
+        let mut weighted_total = 0u128;
+        let mut total_weight = 0u128;
+        let mut complete = true;
+
+        for policy in &policies {
+            let frequency = read_path(&policy.join(attribute))
+                .parse::<u64>()
+                .ok()
+                .filter(|value| *value > 0);
+            let Some(frequency) = frequency else {
+                complete = false;
+                break;
+            };
+
+            let weight = parse_cpu_list(&read_path(&policy.join("affected_cpus")))
+                .len()
+                .max(1) as u128;
+            weighted_total += frequency as u128 * weight;
+            total_weight += weight;
+        }
+
+        if complete && total_weight > 0 {
+            return Some(((weighted_total / total_weight + 500) / 1000) as u64);
+        }
+    }
+
+    read_per_cpu_frequency_mhz()
+}
+
+fn read_per_cpu_frequency_mhz() -> Option<u64> {
+    let cpus = parse_cpu_list(&read("/sys/devices/system/cpu/online"));
+    if cpus.is_empty() {
+        return None;
+    }
+
+    for attribute in ["cpuinfo_avg_freq", "cpuinfo_cur_freq", "scaling_cur_freq"] {
+        let frequencies: Vec<u64> = cpus
+            .iter()
+            .filter_map(|cpu| {
+                read_path(
+                    &Path::new("/sys/devices/system/cpu")
+                        .join(format!("cpu{cpu}/cpufreq"))
+                        .join(attribute),
+                )
+                .parse::<u64>()
+                .ok()
+                .filter(|value| *value > 0)
+            })
+            .collect();
+
+        if frequencies.len() == cpus.len() {
+            let average = frequencies.iter().map(|value| *value as u128).sum::<u128>()
+                / frequencies.len() as u128;
+            return Some(((average + 500) / 1000) as u64);
+        }
+    }
+
+    None
 }
 
 fn parse_cpu_list(value: &str) -> Vec<usize> {
@@ -933,6 +1119,38 @@ pub fn shell(shell: &str, version: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pci_ids_parser_matches_only_requested_top_level_devices() {
+        let database = "\
+8086  Intel Corporation\n\
+\t1234  Example Integrated Graphics\n\
+\t\t0001  Example Subsystem\n\
+1002  Advanced Micro Devices, Inc. [AMD/ATI]\n\
+\tabcd  Example Radeon Device\n";
+        let wanted = [
+            ("8086".to_owned(), "1234".to_owned()),
+            ("1002".to_owned(), "abcd".to_owned()),
+        ]
+        .into_iter()
+        .collect();
+        let names = parse_pci_ids(database, &wanted);
+        assert_eq!(
+            names.get(&("8086".into(), "1234".into())).map(String::as_str),
+            Some("Example Integrated Graphics")
+        );
+        assert_eq!(
+            names.get(&("1002".into(), "abcd".into())).map(String::as_str),
+            Some("Example Radeon Device")
+        );
+        assert_eq!(names.len(), 2);
+    }
+
+    #[test]
+    fn pci_ids_are_normalized() {
+        assert_eq!(normalize_pci_id("0x10DE"), "10de");
+        assert_eq!(normalize_pci_id("8086"), "8086");
+    }
 
     #[test]
     fn cpu_list_parser_deduplicates_and_ignores_invalid_ranges() {
