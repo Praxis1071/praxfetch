@@ -83,40 +83,15 @@ The release profile uses optimization, ThinLTO, one codegen unit, abort-on-panic
 
 The code is intentionally small, but follows a useful detection/formatting boundary:
 
-- src/info.rs — Linux detection, parsing, validation, and formatting helpers.
+- src/info.rs — current Linux detection, parsing, validation, and formatting implementation; modular extraction is planned in ROADMAP.md.
 - src/ascii.rs — the single Tux logo, terminal-width-safe padding, distro-aware color accents, and color blocks.
 - src/main.rs — CLI parsing and final presentation.
 
 This mirrors a principle used by mature fetch tools such as Fastfetch: detection logic should not depend on presentation logic.
 
-## Roadmap
+## Development roadmap
 
-### 0.1.x — Stabilization
-- Real build/test verification on supported Linux environments
-- Startup benchmark
-- More parser tests
-- Better package-manager coverage without subprocesses
-- Hardware edge-case testing and parser hardening
-- Multi-GPU, multi-display, and multi-battery regression coverage
-- Network interface state and wireless-detection regression coverage
-
-### 0.2.x — Hardware
-- Richer GPU identification and multi-GPU handling
-- Multi-display and connector edge cases\n- Mounted filesystem parsing, bind-mount deduplication, and statvfs edge-case coverage
-- More detailed battery/power information
-- More precise network interface classification
-
-### 0.3.x — UX
-- Configurable module selection
-- Tux logo rendering and terminal compatibility
-- Better terminal detection/version reporting
-- Optional JSON output for scripting
-
-### 1.0.x — Release quality
-- Release binaries for common Linux architectures
-- Reproducible release process
-- Expanded CI matrix
-- Documented compatibility and performance measurements
+The prioritized implementation strategy, completed work, acceptance criteria, and research references are maintained in [ROADMAP.md](ROADMAP.md). Update that file alongside implementation work; it is the project's development source of truth.
 
 ## License
 
