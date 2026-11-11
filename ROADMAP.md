@@ -135,9 +135,9 @@ These three workstreams are the project's central quality goals. They take prece
 The user requested a three-dimensional Linux penguin that can be manipulated with the mouse, using Orhun Parmaksız's Ratty project.
 
 - [x] Research Ratty and its Ratty Graphics Protocol (RGP); confirm the upstream `ratatui-ratty` widget is MIT licensed.
-- [x] Keep the existing minimal CLI presentation as the default; add an explicit `--3d` entry point instead of changing normal startup.
-- [x] Generate an original multi-part Tux mesh in memory; use separate colored OBJ parts so the model has a black body, white belly/face/eyes, and orange beak/feet.
-- [x] Add mouse drag rotation, wheel zoom, and keyboard exit behavior to the optional view.
+- [ ] Keep the existing minimal CLI presentation as the default; add an explicit `--3d` entry point instead of changing normal startup (implemented; awaiting CI verification).
+- [ ] Generate an original multi-part Tux mesh in memory; use separate colored OBJ parts so the model has a black body, white belly/face/eyes, and orange beak/feet (implemented; awaiting geometry and Ratty validation).
+- [ ] Add mouse drag rotation, wheel zoom, and keyboard exit behavior to the optional view (implemented; awaiting interactive validation).
 - [ ] Verify the new mode in Ratty itself; ordinary terminals do not implement RGP and cannot render inline 3D objects.
 - [ ] Validate the new dependencies, model geometry, terminal cleanup, and unchanged default output on CI and real Ratty.
 - [ ] Test graceful cleanup after normal exit, terminal resize, and I/O errors; ensure Praxfetch deletes only its own RGP object IDs.
