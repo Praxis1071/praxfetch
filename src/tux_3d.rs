@@ -12,7 +12,7 @@ use std::{
 use crossterm::{
     cursor,
     event::{
-        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseButton, MouseEventKind,
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers, MouseButton, MouseEventKind,
     },
     execute, terminal,
 };
@@ -140,7 +140,9 @@ fn interact(model: &mut TuxModel, area: Rect) -> io::Result<()> {
             Event::Key(key)
                 if key.code == KeyCode::Esc
                     || key.code == KeyCode::Char('q')
-                    || key.code == KeyCode::Char('Q') =>
+                    || key.code == KeyCode::Char('Q')
+                    || (key.code == KeyCode::Char('c')
+                        && key.modifiers.contains(KeyModifiers::CONTROL)) =>
             {
                 return Ok(());
             }
