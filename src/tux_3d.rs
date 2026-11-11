@@ -364,6 +364,18 @@ fn ellipsoid_obj(
                 center[1] + y * radii[1],
                 center[2] + z * radii[2]
             ));
+            let nx = x / radii[0];
+            let ny = y / radii[1];
+            let nz = z / radii[2];
+            let normal_length = (nx * nx + ny * ny + nz * nz)
+                .sqrt()
+                .max(f32::EPSILON);
+            obj.push_str(&format!(
+                "vn {:.5} {:.5} {:.5}\n",
+                nx / normal_length,
+                ny / normal_length,
+                nz / normal_length
+            ));
         }
     }
 
@@ -374,7 +386,9 @@ fn ellipsoid_obj(
             let b = ring * segments + next + 1;
             let c = (ring + 1) * segments + next + 1;
             let d = (ring + 1) * segments + segment + 1;
-            obj.push_str(&format!("f {a} {b} {c}\nf {a} {c} {d}\n"));
+            obj.push_str(&format!(
+                "f {a}//{a} {b}//{b} {c}//{c}\nf {a}//{a} {c}//{c} {d}//{d}\n"
+            ));
         }
     }
 
@@ -390,6 +404,7 @@ mod tests {
         let obj = ellipsoid_obj([0.0, 0.0, 0.0], [1.0, 2.0, 1.0], 12, 8);
         assert!(obj.starts_with("o tux_part\n"));
         assert_eq!(obj.lines().filter(|line| line.starts_with("v ")).count(), 108);
+        assert_eq!(obj.lines().filter(|line| line.starts_with("vn ")).count(), 108);
         assert_eq!(obj.lines().filter(|line| line.starts_with("f ")).count(), 192);
         assert!(obj.lines().all(|line| !line.contains("NaN")));
     }
