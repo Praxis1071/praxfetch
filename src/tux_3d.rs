@@ -291,7 +291,7 @@ impl TuxModel {
             let graphic = RattyGraphic::new(settings);
             let mesh = ellipsoid_obj(center, radii, 16, 10);
             if let Err(error) =
-                graphic.register_payload_with_name(mesh.as_bytes(), Some("praxfetch-tux.obj"))
+                graphic.register_payload_with_name(mesh.as_bytes(), Some(name))
             {
                 let _ = graphic.clear();
                 for registered in &parts {
