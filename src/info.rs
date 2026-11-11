@@ -1230,11 +1230,14 @@ fn filesystem_capacity(path: &Path) -> Option<(u64, u64)> {
     let path = CString::new(path.as_os_str().as_bytes()).ok()?;
     let mut stat = std::mem::MaybeUninit::<libc::statvfs>::zeroed();
 
+    // SAFETY: `path` is a live, NUL-terminated CString, and `stat` points to
+    // correctly aligned writable storage for `libc::statvfs` for the duration of the call.
     let result = unsafe { libc::statvfs(path.as_ptr(), stat.as_mut_ptr()) };
     if result != 0 {
         return None;
     }
 
+    // SAFETY: POSIX `statvfs` initializes the output structure when it returns success.
     let stat = unsafe { stat.assume_init() };
     let block_size = if stat.f_frsize > 0 {
         u64::try_from(u128::from(stat.f_frsize)).ok()?
