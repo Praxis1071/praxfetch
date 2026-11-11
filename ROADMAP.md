@@ -132,6 +132,17 @@ These three workstreams are the project's central quality goals. They take prece
 
 The phases are ordered by dependency and risk, not by how visually impressive a feature looks. Finish the acceptance criteria for a phase before moving its unfinished work into the completed column.
 
+### Initial repository audit — findings to address
+
+The first source review after setting these priorities found the following concrete work. These are observations, not claims that the whole audit is complete.
+
+- [ ] **P0 / Performance:** `collect()` currently executes CPU, temperature, battery, disk, GPU, display, and network detection even though the approved default output uses only user/hostname, OS, host, kernel, uptime, package count, and memory. Measure and then stop collecting hidden fields on the default path; keep future optional modules possible without paying their cost by default.
+- [ ] **P0 / Code structure:** `src/info.rs` currently owns a large mixture of filesystem access, parsing, aggregation, and formatting. Extract modules incrementally with behavior-preserving tests; do not perform a one-shot rewrite.
+- [ ] **P1 / Reproducibility:** the repository currently has no `Cargo.lock`; introduce and commit it before relying on `--locked` CI or release builds.
+- [ ] **P1 / CI security:** workflow actions currently use movable version tags (for example, `actions/checkout@v4`) rather than verified full commit SHAs. Pin actions and use least-privilege workflow permissions.
+- [ ] **P1 / Test coverage:** existing tests are predominantly unit/parser tests; add executable-level tests for the exact seven-line default contract, `--no-color`, `NO_COLOR`, `--help`, `--version`, and failure/exit behavior.
+- [ ] **Scope review:** package database readers for non-Arch managers remain in the code. Decide whether to retain them as low-cost parser portability or remove them if they materially increase maintenance burden; do not remove functionality without measurements and a documented decision.
+
 ### Phase 1 — Stabilize and establish a trustworthy baseline
 
 **Priority: P0 · Do before major feature work**
