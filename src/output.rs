@@ -2,7 +2,7 @@ use std::io::{self, Write};
 
 use colored::Colorize;
 
-use crate::{ascii, info::SystemInfo};
+use crate::{ascii, info::{self, SystemInfo}};
 
 /// The classic seven-line Praxfetch presentation, shared by normal and 3D modes.
 pub struct OutputLayout {
