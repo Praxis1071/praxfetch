@@ -2,7 +2,7 @@
 
 A fast, zero-subprocess Linux system-information fetch utility written in Rust.
 
-**Build requirement:** Rust 1.88 or newer (required by the current Ratty graphics dependency stack).
+**Build requirement:** Rust 1.88 or newer (required by Ratatui Core 0.1.2).
 
 ## What praxfetch does
 
