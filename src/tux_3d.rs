@@ -36,12 +36,25 @@ pub fn run(output: &OutputLayout) -> io::Result<()> {
     // RGP uses absolute terminal-cell coordinates. Ask the terminal where this
     // command's output begins so the model is placed correctly below the prompt.
     let origin = cursor::position()?;
+    let (_, terminal_height) = terminal::size()?;
+    let visible_origin = (
+        origin.0,
+        visible_output_row(origin.1, output.logo_height(), terminal_height),
+    );
     let mut terminal_mode = TerminalMode::enter()?;
 
-    let result = run_inline(output, origin);
+    let result = run_inline(output, visible_origin);
     let restore_result = terminal_mode.restore();
 
     result.and(restore_result)
+}
+
+fn visible_output_row(start_row: u16, output_rows: u16, terminal_height: u16) -> u16 {
+    let last_row = terminal_height.saturating_sub(1);
+    let scroll_rows = start_row
+        .saturating_add(output_rows)
+        .saturating_sub(last_row);
+    start_row.saturating_sub(scroll_rows)
 }
 
 fn run_inline(output: &OutputLayout, origin: (u16, u16)) -> io::Result<()> {
@@ -333,6 +346,13 @@ fn ellipsoid_obj(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inline_logo_position_accounts_for_terminal_scrolling() {
+        assert_eq!(visible_output_row(5, 7, 24), 5);
+        assert_eq!(visible_output_row(17, 7, 24), 16);
+        assert_eq!(visible_output_row(23, 7, 24), 16);
+    }
 
     #[test]
     fn generated_tux_parts_are_valid_obj_meshes() {
