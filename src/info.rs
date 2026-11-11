@@ -24,6 +24,7 @@ pub struct HostInfo {
 }
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct CpuInfo {
     pub model: String,
     pub physical_cores: Option<usize>,
