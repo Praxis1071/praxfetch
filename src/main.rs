@@ -1,5 +1,6 @@
 mod ascii;
 mod info;
+mod tux_3d;
 
 use clap::Parser;
 use colored::Colorize;
@@ -13,10 +14,22 @@ use colored::Colorize;
 struct Args {
     #[arg(long, help = "Disable ANSI colors")]
     no_color: bool,
+
+    #[arg(long = "3d", help = "Open the interactive 3D Tux view (requires Ratty terminal)")]
+    tux_3d: bool,
 }
 
 fn main() {
     let args = Args::parse();
+
+    if args.tux_3d {
+        if let Err(error) = tux_3d::run() {
+            eprintln!("praxfetch: 3D Tux view failed: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
+
     let no_color = args.no_color || std::env::var_os("NO_COLOR").is_some();
 
     if no_color {
