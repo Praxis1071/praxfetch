@@ -2,7 +2,7 @@
 
 A fast, zero-subprocess Linux system-information fetch utility written in Rust.
 
-**Build requirement:** Rust 1.88 or newer (Ratatui 0.30 requirement).
+**Build requirement:** Rust 1.88 or newer (required by the current Ratty graphics dependency stack).
 
 ## What praxfetch does
 
@@ -63,7 +63,7 @@ praxfetch --version
 
 ### Interactive 3D Tux
 
-Run `praxfetch --3d` inside [Ratty](https://github.com/orhun/ratty), Orhun Parmaksız's GPU-rendered terminal emulator. This optional mode uses the MIT-licensed `ratatui-ratty` widget and Ratty Graphics Protocol to render an original, procedurally generated multi-part Tux model. Drag with the left mouse button to rotate it, use the wheel to zoom, and press `Q` or `Esc` to exit. The normal `praxfetch` output remains unchanged and does not require Ratty. Other terminal emulators do not implement RGP and cannot display the 3D model.
+Run `praxfetch --3d` inside [Ratty](https://github.com/orhun/ratty), Orhun Parmaksız's GPU-rendered terminal emulator. This mode keeps the exact classic seven-line Praxfetch layout: only the ASCII Tux in the left logo column is replaced by an original, procedurally generated multi-part 3D Tux. System-information fields remain in their usual positions. It uses the MIT-licensed `ratatui-ratty` widget and Ratty Graphics Protocol (RGP); it does **not** open an alternate screen, clear the terminal, or create a full-screen TUI. Drag the Tux with the left mouse button to rotate it, use the wheel to zoom, and press `Q` or `Esc` to exit. On exit, the 3D object is removed and the original ASCII Tux is restored. Other terminal emulators do not implement RGP and cannot display the 3D model.
 
 Install Ratty on Arch Linux with `sudo pacman -S ratty`. Praxfetch does not install, launch, or manage the terminal emulator for you.
 
@@ -105,8 +105,9 @@ The code is intentionally small, but follows a useful detection/formatting bound
 - src/info/os_release.rs — isolated, deterministic parsing of os-release quoted and escaped values.
 - src/info/packages.rs — package database detection and native package counts, prioritizing the Arch pacman local database.
 - src/ascii.rs — the single Tux logo, terminal-width-safe padding, and distro-aware color accents.
-- src/tux_3d.rs — optional Ratty-backed Tux model, procedural OBJ mesh generation, mouse rotation, and zoom controls.
-- src/main.rs — CLI parsing and final presentation.
+- src/tux_3d.rs — inline Ratty-backed Tux model, procedural OBJ mesh generation, mouse rotation, and zoom controls without a full-screen interface.
+- src/output.rs — shared classic output layout used by both ASCII and inline 3D modes.
+- src/main.rs — CLI parsing and mode selection.
 
 This mirrors a principle used by mature fetch tools such as Fastfetch: detection logic should not depend on presentation logic.
 
