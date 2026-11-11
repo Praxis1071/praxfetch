@@ -370,12 +370,33 @@ mod tests {
     #[test]
     fn generated_tux_mesh_uses_only_finite_coordinates() {
         let obj = ellipsoid_obj([0.2, -0.3, 0.4], [0.5, 0.6, 0.7], 20, 12);
-        for line in obj.lines().filter(|line| line.starts_with("v ")) {
+        for line in obj
+            .lines()
+            .filter(|line| line.starts_with("v ") || line.starts_with("vn "))
+        {
             let values = line
                 .split_whitespace()
                 .skip(1)
                 .map(|value| value.parse::<f32>().unwrap());
             assert!(values.into_iter().all(f32::is_finite));
+        }
+    }
+
+    #[test]
+    fn generated_tux_mesh_faces_reference_existing_vertices_and_normals() {
+        let segments = 20;
+        let rings = 12;
+        let vertex_count = (rings + 1) * segments;
+        let obj = ellipsoid_obj([0.0, 0.0, 0.0], [0.5, 0.6, 0.7], segments, rings);
+
+        for face in obj.lines().filter(|line| line.starts_with("f ")) {
+            for vertex in face.split_whitespace().skip(1) {
+                let (position, normal) = vertex.split_once("//").expect("OBJ normal index");
+                let position = position.parse::<usize>().expect("OBJ position index");
+                let normal = normal.parse::<usize>().expect("OBJ normal index");
+                assert!((1..=vertex_count).contains(&position));
+                assert!((1..=vertex_count).contains(&normal));
+            }
         }
     }
 }
