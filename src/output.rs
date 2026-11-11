@@ -60,7 +60,7 @@ impl OutputLayout {
             })
             .collect();
 
-        let right_columns = fields
+        let right_columns: Vec<String> = fields
             .iter()
             .map(|(key, value)| {
                 if key.is_empty() {
