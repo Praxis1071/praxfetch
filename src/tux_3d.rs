@@ -275,7 +275,7 @@ impl TuxModel {
             ("right-foot", [235, 125, 24], [0.25, -0.80, 0.18], [0.24, 0.10, 0.19]),
         ];
 
-        let mut parts = Vec::with_capacity(definitions.len());
+        let mut parts: Vec<RattyGraphic<'static>> = Vec::with_capacity(definitions.len());
         for (index, (name, color, center, radii)) in definitions.into_iter().enumerate() {
             let id = MODEL_ID_BASE
                 .wrapping_add(std::process::id().wrapping_mul(16))
