@@ -36,71 +36,25 @@ fn main() {
         "unknown".to_owned()
     };
 
-    let os = info::os_label(&s.os);
-    let packages = match s.packages.count {
-        Some(count) => format!("{} ({})", count, s.packages.manager),
-        None => format!("{} (count unavailable)", s.packages.manager),
-    };
-
-    let load = s
-        .load_avg
-        .map(|(one, five, fifteen)| format!("{one:.2} {five:.2} {fifteen:.2}"))
+    let packages = s
+        .packages
+        .count
+        .map(|count| count.to_string())
         .unwrap_or_else(|| "unknown".to_owned());
 
     let fields = [
-        ("OS", os),
-        ("Host", host),
-        ("Kernel", s.kernel),
+        ("", format!("{}@{}", s.user, s.hostname)),
+        ("os", info::os_label(&s.os)),
+        ("host", host),
+        ("kernel", s.kernel),
         (
-            "Uptime",
+            "uptime",
             s.uptime
                 .map(info::uptime)
                 .unwrap_or_else(|| "unknown".to_owned()),
         ),
-        ("Load Avg", load),
-        ("Packages", packages),
-        ("Shell", info::shell(&s.shell, &s.shell_version)),
-        ("DE/WM", s.desktop),
-        ("Terminal", s.terminal),
-        ("CPU", {
-            let topology = match s.cpu.physical_cores {
-                Some(cores) if s.cpu.threads > 0 => {
-                    format!("{cores} cores / {} threads", s.cpu.threads)
-                }
-                Some(cores) => format!("{cores} cores"),
-                None if s.cpu.threads > 0 => format!("{} threads", s.cpu.threads),
-                None => "topology unavailable".to_owned(),
-            };
-            format!("{} ({topology})", s.cpu.model)
-        }),
-        (
-            "CPU Temp",
-            s.temperature
-                .cpu_celsius
-                .map(|temperature| format!("{temperature:.1} °C"))
-                .unwrap_or_else(|| "unavailable".to_owned()),
-        ),
-        (
-            "CPU Freq",
-            s.cpu
-                .frequency_mhz
-                .map(|frequency| format!("{:.2} GHz", frequency as f64 / 1000.0))
-                .unwrap_or_else(|| "unavailable".to_owned()),
-        ),
-        ("Memory", info::memory(&s.memory)),
-        ("Swap", info::swap(&s.swap)),
-        ("Disk", {
-            let summary = info::disk(&s.disk);
-            if s.disk.filesystems > 1 && summary != "unknown" {
-                format!("{summary} ({} filesystems)", s.disk.filesystems)
-            } else {
-                summary
-            }
-        }),
-        ("Battery", info::battery(&s.battery)),
-        ("GPU", info::gpu(&s.gpu)),
-        ("Display", info::display(&s.display)),
-        ("Network", info::network(&s.network)),
+        ("pkgs", packages),
+        ("memory", info::memory_compact(&s.memory)),
     ];
 
     let label_width = fields
@@ -112,16 +66,17 @@ fn main() {
     let logo_width = ascii::logo_width(&logo);
     let logo_column_width = logo_width + 4;
 
-    println!();
-    println!("{}", format!("{}@{}", s.user, s.hostname).green().bold());
-
     for i in 0..logo.len().max(fields.len()) {
         let left = logo.get(i).map(String::as_str).unwrap_or("");
         let right = fields
             .get(i)
             .map(|(key, value)| {
-                let key = format!("{:<width$}", key, width = label_width);
-                format!("{} {}", key.cyan().bold(), value)
+                if key.is_empty() {
+                    value.green().bold().to_string()
+                } else {
+                    let key = format!("{:<width$}", key, width = label_width);
+                    format!("{} {}", key.cyan().bold(), value)
+                }
             })
             .unwrap_or_default();
 
@@ -134,12 +89,4 @@ fn main() {
 
         println!("{}{}", logo_part, right);
     }
-
-    println!();
-    println!(
-        "{}{}",
-        " ".repeat(logo_column_width),
-        ascii::blocks(no_color)
-    );
-    println!();
 }
