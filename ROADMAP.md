@@ -2,8 +2,8 @@
 
 > **Purpose:** Build praxfetch into a dependable, fast, maintainable Linux system-information CLI without sacrificing its defining constraints.
 >
-> **Last reviewed:** 2026-11-05  
-> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 41 automated tests passing in GitHub Actions run [#132](https://github.com/Praxis1071/praxfetch/actions/runs/41991940742).
+> **Last reviewed:** 2026-11-11  
+> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 43 automated tests; latest verified CI: [run #144](https://github.com/Praxis1071/praxfetch/actions/runs/43090933518), commit `4fe659fe809208d34bc25f9a8ba761102c0eb0a5`.
 
 This is the project's source of truth for development priorities. Keep it updated as work lands. A checkbox is only marked complete after the implementation is present, relevant tests pass, documentation is updated, and the latest applicable CI run succeeds.
 
@@ -19,8 +19,8 @@ praxfetch should be a small, trustworthy, Linux-native alternative in the fastfe
 - [x] **No root requirement:** inaccessible or absent information must degrade gracefully.
 - [x] **Honest reporting:** distinguish unavailable data from zero, and do not invent hardware details.
 - [x] **Consistent Tux identity:** use Tux on every distribution; distro detection may influence accents, not the mascot.
-- [x] **MIT license.**
-- [ ] **Compatibility contract:** document supported Linux architectures, libc expectations, minimum Rust version, and kernel/interface fallbacks.
+- [x] **MIT license.** Keep MIT for now: Fastfetch is also MIT-licensed; changing Praxfetch to GPLv3 is a project-policy choice, not a technical requirement. Revisit only if copyleft becomes an explicit project goal.
+- [ ] **Arch-first compatibility contract:** define and test Arch Linux x86_64 as the initial target, with CachyOS as a first-class validation environment; document architecture, libc, toolchain, and kernel-interface assumptions.
 - [ ] **Machine-readable output contract:** define and test stable JSON field names, types, nullability, and versioning before calling JSON output stable.
 
 ### Engineering rules
@@ -34,7 +34,73 @@ praxfetch should be a small, trustworthy, Linux-native alternative in the fastfe
 7. Never claim a performance target is met without repeatable measurements on identified hardware.
 8. Do not make broad refactors and feature changes in one unreviewable step. Work in small, buildable commits.
 
-## 2. Current baseline — completed
+## 2. Engineering priorities — mandatory workstreams
+
+These three workstreams are the project's central quality goals. They take precedence over feature count, cosmetic changes, packaging, and release expansion. Work on them incrementally; do not mark a workstream complete merely because its checklist has been added.
+
+### A. Code quality
+
+**Goal:** make the code easy to reason about, test, review, and safely extend.
+
+- [ ] Audit the entire current codebase before large refactors; record concrete findings and severity instead of rewriting by taste.
+- [ ] Separate detection, parsing, validation, data models, and rendering with clear ownership and minimal coupling.
+- [ ] Keep parsers deterministic and testable using supplied input; isolate filesystem access at narrow boundaries.
+- [ ] Replace ambiguous sentinel values with explicit types such as Option and small enums where they improve correctness.
+- [ ] Review integer conversions, arithmetic overflow, indexing, UTF-8 assumptions, path handling, and panic paths.
+- [ ] Remove dead code, duplicated parsing, unnecessary clones/allocations, and dependencies only when evidence confirms they are unnecessary.
+- [ ] Use idiomatic, documented Rust; keep unsafe code absent unless a demonstrated need exists. Any future unsafe block requires a written safety argument and tests.
+- [ ] Keep functions and modules focused; avoid overengineering, global mutable state, hidden caching, and abstractions without a concrete use.
+- [ ] Add regression tests for every discovered bug and focused tests for each parser's boundary conditions.
+- [ ] Keep the user-facing default output unchanged unless the user explicitly approves a change.
+
+**Acceptance:** understandable module boundaries, no known high-severity maintainability defects, no unexplained dead code or dependency, and all quality gates pass.
+
+### B. Performance
+
+**Goal:** make the actual program fast, not merely make performance-oriented code changes.
+
+- [ ] Establish a reproducible release-binary baseline on the user's Arch/CachyOS x86_64 systems before optimizing.
+- [ ] Measure warm and cold execution separately where feasible; run enough repetitions to report median and spread/percentiles.
+- [ ] Record hardware, CPU governor/power mode, kernel, Rust compiler, build flags, binary size, command, and measurement tool.
+- [ ] Measure end-to-end startup and identify the cost of each detector; pay particular attention to package database traversal, sysfs/procfs enumeration, PCI database reads, and filesystem metadata calls.
+- [ ] Profile before optimizing. Use Linux perf/sampling or allocation profilers when available; do not infer bottlenecks from source appearance.
+- [ ] Reduce work before making individual operations clever: avoid collecting information not needed by the selected output, repeated reads/parses, unnecessary directory scans, and needless allocations.
+- [ ] Evaluate lazy collection and selective detector execution while preserving a clear architecture and predictable output.
+- [ ] Compare every meaningful optimization against the same baseline and rerun correctness tests.
+- [ ] Track startup latency, peak/resident memory where practical, and release binary size; do not optimize one metric while silently damaging another.
+- [ ] Keep the <5 ms warm-start objective as an aspirational, hardware-specific target, never a universal promise or noisy CI gate.
+
+**Acceptance:** checked-in benchmark instructions and reproducible measurements on identified hardware; every claimed improvement has before/after evidence and no correctness regression.
+
+### C. Reliability and correctness
+
+**Goal:** every displayed value must be defensible, and one broken or unavailable source must not break the whole application.
+
+- [ ] Audit every detector against the actual Linux kernel ABI/documentation and the relevant userspace specification.
+- [ ] Prioritize Arch Linux's real filesystem layout and package database behavior; test CachyOS as a real-world Arch-based environment.
+- [ ] Test missing, unreadable, malformed, empty, truncated, changing, duplicated, reordered, oversized, and non-UTF-8 input where applicable.
+- [ ] Distinguish unavailable, unsupported, permission-denied, and genuinely zero values; never fabricate a fallback.
+- [ ] Validate units, ranges, integer arithmetic, float finiteness, aggregation rules, and semantic meaning before formatting.
+- [ ] Avoid blocking or remote filesystem probes; preserve the no-network, no-subprocess, and no-root runtime invariants.
+- [ ] Add fixture-driven tests for parser edge cases and integration tests for the observable CLI contract.
+- [ ] Exercise multiple-device and unusual-host cases: multi-CPUFreq policy, multi-GPU, multi-display, multiple batteries, containers, VMs, and minimal installations.
+- [ ] Run tests under current stable Rust and an explicitly chosen MSRV once the project defines one.
+- [ ] Keep CI checks strict, deterministic, and useful; investigate warnings rather than suppressing them broadly.
+- [ ] Maintain a known-limitations list. An unsupported datum should be reported as unknown rather than guessed.
+
+**Acceptance:** no known high-severity correctness issue, robust fixture coverage for audited interfaces, runtime invariants retained, and final CI green.
+
+### Current platform scope
+
+- **Primary target:** Arch Linux x86_64.
+- **First validation system:** CachyOS x86_64.
+- **Not a current release promise:** Debian, Fedora, Alpine, other distributions, non-x86_64 architectures, BSD, macOS, and Windows.
+- Keep detection code Linux-native and standards-based so future portability remains possible, but do not spend this phase claiming or building a broad compatibility matrix.
+- Package creation, AUR publication, .deb/.rpm work, and release automation are deliberately deferred until the three engineering workstreams and baseline audit are in good shape.
+
+---
+
+## 3. Current baseline — completed
 
 ### Core identity and system information
 
@@ -62,7 +128,7 @@ praxfetch should be a small, trustworthy, Linux-native alternative in the fastfe
 - [x] Automated tests cover important parsing and edge cases, including OS metadata, CPU topology/frequency, CPU temperature selection, PCI IDs, mountinfo, battery aggregation, and formatting.
 - [x] Latest verified baseline: 43 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #142](https://github.com/Praxis1071/praxfetch/actions/runs/43090814311).
 
-## 3. Prioritized implementation roadmap
+## 4. Prioritized implementation roadmap
 
 The phases are ordered by dependency and risk, not by how visually impressive a feature looks. Finish the acceptance criteria for a phase before moving its unfinished work into the completed column.
 
@@ -77,7 +143,7 @@ The phases are ordered by dependency and risk, not by how visually impressive a 
 - [ ] Add fixture-based parser tests for malformed, truncated, duplicate, reordered, and missing fields.
 - [ ] Add regression tests for multiple GPUs, displays, batteries, network interfaces, and CPUFreq policies.
 - [x] Add a CI source audit that flags common subprocess APIs, socket APIs, and direct network-client dependencies; treat it as defense-in-depth rather than a formal proof.
-- [ ] Verify output on at least one physical Intel system, one AMD system, a VM, and a minimal/container-like Linux environment where practical.
+- [ ] Verify output on the primary Arch Linux x86_64 target, including the user's CachyOS systems; expand to AMD, VM, and minimal/container environments only when available and useful.
 
 **Audit fixes completed on 2026-11-05**
 
@@ -161,7 +227,7 @@ The phases are ordered by dependency and risk, not by how visually impressive a 
 - [ ] Use `Cargo.lock` and `--locked` in CI for reproducible dependency resolution.
 - [ ] Add dependency/advisory review (for example, `cargo audit`) with a documented policy for advisories and exceptions.
 - [ ] Add a supported Rust toolchain/MSRV policy and test it deliberately; do not accidentally promise an untested MSRV.
-- [ ] Expand CI to cover x86_64 and aarch64, using native runners where available and cross-compilation as a separate compile-only check.
+- [ ] Keep CI aligned with the current Arch-first x86_64 scope; add aarch64 or other targets only after they become explicit support commitments.
 - [ ] Keep formatting, check, tests, Clippy with warnings denied, and release build as required gates.
 - [ ] Add integration checks for `--help`, `--version`, `--no-color`, JSON output, and exit status once those features exist.
 - [ ] Consider scheduled dependency update checks and a documented update/review cadence.
@@ -188,10 +254,10 @@ The phases are ordered by dependency and risk, not by how visually impressive a 
 
 **Priority: P2 · 1.0 readiness**
 
-- [ ] Define the supported Linux architecture and environment matrix.
+- [ ] Define and publish the Arch Linux x86_64 support contract and its known limitations.
 - [ ] Review the CLI and JSON schema for compatibility before 1.0.
 - [ ] Document installation, source build, binary installation, troubleshooting, and known limitations.
-- [ ] Produce release binaries for supported architectures from clean CI jobs.
+- [ ] Produce release binaries for the explicitly supported Arch Linux x86_64 target from clean CI jobs.
 - [ ] Publish checksums and release notes describing user-visible changes and limitations.
 - [ ] Test upgrade behavior and ensure old command-line usage remains valid.
 - [ ] Tag releases with semantic versioning and keep the changelog/README/ROADMAP synchronized.
@@ -199,7 +265,7 @@ The phases are ordered by dependency and risk, not by how visually impressive a 
 
 **1.0 release gate:** no known critical correctness or security issue; clean CI; supported-platform test evidence; documented CLI/JSON contracts; repeatable release artifacts; measured performance results with honest hardware context.
 
-## 4. Explicit non-goals
+## 5. Explicit non-goals
 
 - No runtime subprocesses, shell-outs, package-manager command execution, or network requests.
 - No root-only detection path as a normal requirement.
@@ -208,7 +274,7 @@ The phases are ordered by dependency and risk, not by how visually impressive a 
 - No premature micro-optimizations or hard CI timing thresholds based on noisy shared runners.
 - No feature expansion that makes the default output slower or less reliable without a clear user benefit.
 
-## 5. Definition of done for every change
+## 6. Definition of done for every change
 
 A change is complete only when all applicable items below are satisfied:
 
@@ -224,7 +290,15 @@ A change is complete only when all applicable items below are satisfied:
 - [ ] The latest GitHub Actions run for the final commit succeeds.
 - [ ] Performance claims, if any, include reproducible measurements and hardware context.
 
-## 6. Research references
+## 7. Research references
+
+- [Rust Performance Book — benchmarking](https://nnethercote.github.io/perf-book/benchmarking.html)
+- [Rust Performance Book — profiling](https://nnethercote.github.io/perf-book/profiling.html)
+- [Rust Performance Book — general optimization principles](https://nnethercote.github.io/perf-book/general-tips.html)
+- [RustSec cargo-audit](https://github.com/rustsec/rustsec/tree/main/cargo-audit)
+- [Arch Linux packaging standards](https://wiki.archlinux.org/title/Arch_Packaging_Standards)
+- [Arch makepkg manual](https://man.archlinux.org/man/makepkg.8)
+- [Fastfetch upstream repository and MIT license](https://github.com/fastfetch-cli/fastfetch)
 
 Use primary documentation first and revisit these links when implementing the related phase:
 
