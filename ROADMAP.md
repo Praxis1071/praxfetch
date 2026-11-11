@@ -144,7 +144,7 @@ The user requested an interactive three-dimensional Linux penguin using Orhun Pa
 - [ ] Validate formatting, compilation, tests, Clippy, release build, and unchanged default output on CI and CachyOS.
 - [ ] Test terminal resize, interrupted execution, unsupported terminals, and I/O-error cleanup.
 
-**Acceptance:** `praxfetch` retains the exact seven-line default output; `praxfetch --3d` keeps the same seven-line layout and replaces only the logo with a recognizable shaded Tux rendered inline by Ratty. Left-drag rotates it, the wheel zooms, and Q/Esc exits. No alternate screen or full-screen UI is allowed. On exit the ASCII logo returns, mouse capture/raw mode are restored, and unrelated RGP objects remain untouched.
+**Acceptance:** `praxfetch` retains the exact seven-line default output; `praxfetch --3d` keeps the same seven-line layout and replaces only the logo with a recognizable shaded Tux rendered inline by Ratty. Left-drag rotates it, the wheel zooms, and Q/Esc/Ctrl+C exits. No alternate screen or full-screen UI is allowed. On exit the ASCII logo returns, mouse capture/raw mode are restored, and unrelated RGP objects remain untouched.
 
 ### Research references
 
