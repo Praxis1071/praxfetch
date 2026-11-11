@@ -68,6 +68,7 @@ fn help_and_version_exit_successfully() {
     let help = String::from_utf8(help.stdout).expect("help should be UTF-8");
     assert!(help.contains("Usage:"));
     assert!(help.contains("--no-color"));
+    assert!(help.contains("--3d"));
 
     let version = run_praxfetch(&["--version"], false);
     assert!(version.status.success());
