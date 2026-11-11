@@ -12,7 +12,8 @@ use std::{
 use crossterm::{
     cursor,
     event::{
-        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers, MouseButton, MouseEventKind,
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers, MouseButton,
+        MouseEventKind,
     },
     execute, terminal,
 };
@@ -215,6 +216,7 @@ impl TuxModel {
                 .normalize(false)
                 .animate(false)
                 .scale(0.42)
+                .rotation([5.0, -18.0, 0.0])
                 .color(color)
                 .brightness(1.0);
 
