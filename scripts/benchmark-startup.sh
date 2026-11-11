@@ -40,8 +40,9 @@ fi
 printf 'Binary: %s\n' "$binary"
 printf 'JSON result: %s\n\n' "$result_file"
 
+benchmark_command="\\"$binary\\" --no-color"
 hyperfine \
     --warmup 10 \
     --runs 100 \
     --export-json "$result_file" \
-    "$binary --no-color"
+    "$benchmark_command"
