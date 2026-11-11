@@ -43,7 +43,7 @@ praxfetch always displays the same Tux ASCII mascot on every Linux distribution.
 - **No privileged access required:** missing or unreadable system files simply fall back to an unavailable value.
 - **No guessed shell versions:** praxfetch never launches a shell to ask for its version.
 - **Native hardware detection:** GPU, display, battery, and network data come from Linux sysfs/proc interfaces rather than external utilities.
-- **No misleading package count:** RPM is detected but intentionally reports count unavailable until a native parser is implemented.
+- **No misleading package count:** Arch package counts use the default `/var/lib/pacman/local` database path; custom `DBPath` overrides in `pacman.conf` are not resolved yet. RPM is detected but intentionally reports count unavailable until a native parser is implemented.
 - **No ANSI alignment bugs:** widths are calculated before color escape sequences are applied.
 
 ## CLI
