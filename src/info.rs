@@ -1950,6 +1950,26 @@ not a valid mount line\n\
     }
 
     #[test]
+    fn pacman_package_counter_counts_only_complete_directory_entries() {
+        let root = std::env::temp_dir().join(format!(
+            "praxfetch-pacman-db-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("alpha-1.0-1")).unwrap();
+        fs::create_dir_all(root.join("beta-2.0-1")).unwrap();
+        fs::write(root.join("db.lck"), "").unwrap();
+
+        assert_eq!(count_package_directories(&root), Some(2));
+        assert_eq!(
+            count_package_directories(&root.join("does-not-exist")),
+            None
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn dpkg_package_counter_handles_lf_crlf_and_incomplete_stanzas() {
         let fixture = "Package: alpha\nStatus: install ok installed\n\nPackage: beta\nStatus: deinstall ok config-files\n\nPackage: gamma\nStatus: install ok installed";
         assert_eq!(count_dpkg_installed(fixture), 2);
