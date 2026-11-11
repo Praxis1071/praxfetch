@@ -48,7 +48,7 @@ jobs:
       image: archlinux:base-devel
     steps:
       - name: Install Arch build tools and action runtime
-        run: pacman -Syu --noconfirm --needed ca-certificates git nodejs rust rustfmt clippy
+        run: pacman -Syu --noconfirm --needed ca-certificates git nodejs rust
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
