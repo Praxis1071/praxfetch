@@ -135,11 +135,11 @@ These three workstreams are the project's central quality goals. They take prece
 The user requested an interactive three-dimensional Linux penguin using Orhun Parmaksız's Ratty project, while preserving Praxfetch's original compact terminal presentation.
 
 - [x] Research Ratty, the current Ratty Graphics Protocol (RGP), and the MIT-licensed `ratatui-ratty` widget.
-- [x] Keep the classic seven-line output as the only layout; `--3d` replaces only the Tux logo column and leaves all six system fields in their original positions.
-- [x] Use inline RGP placement at the terminal cursor's actual starting row/column; do not enter an alternate screen, clear the terminal, or run a full-screen TUI.
-- [x] Use original procedurally generated, separately colored OBJ parts for Tux's black body, white belly/face/eyes, and orange beak/feet.
-- [x] Add left-button drag rotation and wheel zoom using terminal mouse events; restore raw mode and mouse reporting on exit.
-- [x] Delete only Praxfetch's own RGP object IDs and restore the original ASCII logo in the same output area.
+- [ ] Keep the classic seven-line output as the only layout; `--3d` replaces only the Tux logo column and leaves all six system fields in their original positions (implemented; awaiting CI and terminal verification).
+- [ ] Use inline RGP placement at the terminal cursor's actual starting row/column; do not enter an alternate screen, clear the terminal, or run a full-screen TUI (implemented; awaiting Ratty verification).
+- [ ] Use original procedurally generated, separately colored OBJ parts for Tux's black body, white belly/face/eyes, and orange beak/feet (implemented; awaiting geometry and visual verification).
+- [ ] Add left-button drag rotation and wheel zoom using terminal mouse events; restore raw mode and mouse reporting on exit (implemented; awaiting interactive verification).
+- [ ] Delete only Praxfetch's own RGP object IDs and restore the original ASCII logo in the same output area (implemented; awaiting cleanup verification).
 - [ ] Verify the inline placement, model proportions/shading, mouse interaction, and cleanup in the real Ratty terminal.
 - [ ] Validate formatting, compilation, tests, Clippy, release build, and unchanged default output on CI and CachyOS.
 - [ ] Test terminal resize, interrupted execution, unsupported terminals, and I/O-error cleanup.
