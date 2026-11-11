@@ -52,11 +52,18 @@ praxfetch always displays the same Tux ASCII mascot on every Linux distribution.
 praxfetch
 praxfetch --no-color
 NO_COLOR=1 praxfetch
+praxfetch --3d
 praxfetch --help
 praxfetch --version
 ~~~
 
 --no-color and the standard NO_COLOR environment convention disable ANSI colors.
+
+### Interactive 3D Tux
+
+Run `praxfetch --3d` inside [Ratty](https://github.com/orhun/ratty), Orhun Parmaksız's GPU-rendered terminal emulator. This optional mode uses the MIT-licensed `ratatui-ratty` widget and Ratty Graphics Protocol to render an original, procedurally generated multi-part Tux model. Drag with the left mouse button to rotate it, use the wheel to zoom, and press `Q` or `Esc` to exit. The normal `praxfetch` output remains unchanged and does not require Ratty. Other terminal emulators do not implement RGP and cannot display the 3D model.
+
+Install Ratty on Arch Linux with `sudo pacman -S ratty`. Praxfetch does not install, launch, or manage the terminal emulator for you.
 
 ## Build and test
 
@@ -96,6 +103,7 @@ The code is intentionally small, but follows a useful detection/formatting bound
 - src/info/os_release.rs — isolated, deterministic parsing of os-release quoted and escaped values.
 - src/info/packages.rs — package database detection and native package counts, prioritizing the Arch pacman local database.
 - src/ascii.rs — the single Tux logo, terminal-width-safe padding, and distro-aware color accents.
+- src/tux_3d.rs — optional Ratty-backed Tux model, procedural OBJ mesh generation, mouse rotation, and zoom controls.
 - src/main.rs — CLI parsing and final presentation.
 
 This mirrors a principle used by mature fetch tools such as Fastfetch: detection logic should not depend on presentation logic.
