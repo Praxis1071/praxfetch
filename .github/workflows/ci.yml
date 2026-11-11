@@ -35,6 +35,9 @@ jobs:
           bash -n scripts/*.sh
           sh -n scripts/install.sh
 
+      - name: Installer smoke tests
+        run: bash scripts/test-installer.sh
+
       - name: Runtime invariant audit
         run: bash scripts/check-runtime-invariants.sh
 
