@@ -92,7 +92,8 @@ The release profile uses optimization, ThinLTO, one codegen unit, abort-on-panic
 
 The code is intentionally small, but follows a useful detection/formatting boundary:
 
-- src/info.rs — current Linux detection, parsing, validation, and formatting implementation; modular extraction is planned in ROADMAP.md.
+- src/info.rs — current Linux detection, parsing, validation, and formatting implementation; further modular extraction is planned in ROADMAP.md.
+- src/info/os_release.rs — isolated, deterministic parsing of os-release quoted and escaped values.
 - src/ascii.rs — the single Tux logo, terminal-width-safe padding, and distro-aware color accents.
 - src/main.rs — CLI parsing and final presentation.
 
