@@ -76,7 +76,6 @@ fn help_and_version_exit_successfully() {
     assert!(version.starts_with("praxfetch "));
 }
 
-
 #[test]
 fn three_d_mode_requires_a_real_terminal() {
     let output = run_praxfetch(&["--3d"], false);
