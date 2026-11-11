@@ -3,7 +3,7 @@
 > **Purpose:** Build praxfetch into a dependable, fast, maintainable Linux system-information CLI without sacrificing its defining constraints.
 >
 > **Last reviewed:** 2026-11-11  
-> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 43 automated tests; latest verified CI: [run #147](https://github.com/Praxis1071/praxfetch/actions/runs/43093488695), commit `47c0e438014a026a57ceb8ed2b70fc5f98dad728`.
+> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 47 automated tests; latest verified CI before this roadmap update: [run #153](https://github.com/Praxis1071/praxfetch/actions/runs/43094125811), commit `70c9afa2d4e9746cc389cda5c6bc84a1a81e18f9`.
 
 This is the project's source of truth for development priorities. Keep it updated as work lands. A checkbox is only marked complete after the implementation is present, relevant tests pass, documentation is updated, and the latest applicable CI run succeeds.
 
@@ -140,8 +140,8 @@ The first source review after setting these priorities found the following concr
 - [ ] **P0 / Performance:** benchmark the change on Arch/CachyOS hardware and record before/after startup latency; the code change is CI-verified, but its real-device speedup has not yet been measured.
 - [ ] **P0 / Code structure:** `src/info.rs` currently owns a large mixture of filesystem access, parsing, aggregation, and formatting. Extract modules incrementally with behavior-preserving tests; do not perform a one-shot rewrite.
 - [ ] **P1 / Reproducibility:** the repository currently has no `Cargo.lock`; introduce and commit it before relying on `--locked` CI or release builds.
-- [ ] **P1 / CI security:** workflow actions currently use movable version tags (for example, `actions/checkout@v4`) rather than verified full commit SHAs. Pin actions and use least-privilege workflow permissions.
-- [ ] **P1 / Test coverage:** existing tests are predominantly unit/parser tests; add executable-level tests for the exact seven-line default contract, `--no-color`, `NO_COLOR`, `--help`, `--version`, and failure/exit behavior.
+- [x] **P1 / CI security:** pin all current workflow actions to verified full commit SHAs and restrict `GITHUB_TOKEN` to `contents: read`; review and verify every action update.
+- [x] **P1 / Test coverage:** add executable-level regression tests for the exact seven-line default contract, field order, `--no-color`, `NO_COLOR`, `--help`, `--version`, and invalid-argument exit behavior.
 - [ ] **Scope review:** package database readers for non-Arch managers remain in the code. Decide whether to retain them as low-cost parser portability or remove them if they materially increase maintenance burden; do not remove functionality without measurements and a documented decision.
 
 ### Phase 1 — Stabilize and establish a trustworthy baseline
@@ -234,14 +234,14 @@ The first source review after setting these priorities found the following concr
 
 **Priority: P1 · Required before stable releases**
 
-- [ ] Give GitHub Actions the minimum required permissions (read-only by default).
-- [ ] Pin third-party Actions to verified full commit SHAs; record the corresponding release tags in comments.
+- [x] Give GitHub Actions the minimum required permissions (`contents: read` for the current build-only workflow).
+- [x] Pin third-party Actions to verified full commit SHAs; record the corresponding release tags in comments.
 - [ ] Use `Cargo.lock` and `--locked` in CI for reproducible dependency resolution.
 - [ ] Add dependency/advisory review (for example, `cargo audit`) with a documented policy for advisories and exceptions.
 - [ ] Add a supported Rust toolchain/MSRV policy and test it deliberately; do not accidentally promise an untested MSRV.
 - [ ] Keep CI aligned with the current Arch-first x86_64 scope; add aarch64 or other targets only after they become explicit support commitments.
 - [ ] Keep formatting, check, tests, Clippy with warnings denied, and release build as required gates.
-- [ ] Add integration checks for `--help`, `--version`, `--no-color`, JSON output, and exit status once those features exist.
+- [x] Add integration checks for the current CLI contract: `--help`, `--version`, `--no-color`, `NO_COLOR`, exact default fields, and invalid-argument exit status. JSON checks remain deferred until JSON output exists.
 - [ ] Consider scheduled dependency update checks and a documented update/review cadence.
 - [ ] Verify release artifacts are built from tagged commits and include checksums; consider provenance/attestation when the release workflow is mature.
 
@@ -338,6 +338,10 @@ Use primary documentation first and revisit these links when implementing the re
 - [Criterion.rs statistical benchmarking](https://criterion-rs.github.io/book/)
 - [GitHub Actions secure use and SHA pinning](https://docs.github.com/en/actions/reference/security/secure-use)
 - [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
+- [The Rust Programming Language — error handling](https://doc.rust-lang.org/book/ch09-00-error-handling.html)
+- [Rust By Example — error handling and panic guidance](https://doc.rust-lang.org/rust-by-example/error.html)
+- [Clippy lint catalogue — correctness, suspicious, and performance lints](https://rust-lang.github.io/rust-clippy/master/index.html)
+- [Cargo profiles — optimization trade-offs](https://doc.rust-lang.org/cargo/reference/profiles.html)
 
 ---
 
