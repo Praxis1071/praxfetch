@@ -20,15 +20,23 @@ fn default_output_contains_only_the_approved_seven_lines() {
     let lines: Vec<_> = stdout.lines().collect();
     assert_eq!(lines.len(), 7, "unexpected output:\n{stdout}");
 
+    const LOGO_COLUMN_WIDTH: usize = 18;
+    let header = lines[0].get(LOGO_COLUMN_WIDTH..).unwrap_or("").trim_start();
     assert!(
-        lines[0].contains('@'),
+        header.contains('@'),
         "first line should contain user@hostname: {}",
         lines[0]
     );
 
     let labels: Vec<_> = lines[1..]
         .iter()
-        .map(|line| line.split_whitespace().next().unwrap_or(""))
+        .map(|line| {
+            line.get(LOGO_COLUMN_WIDTH..)
+                .unwrap_or("")
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+        })
         .collect();
     assert_eq!(
         labels,
