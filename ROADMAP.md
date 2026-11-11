@@ -94,6 +94,7 @@ These three workstreams are the project's central quality goals. They take prece
 
 - **Primary target:** Arch Linux x86_64.
 - **First validation system:** CachyOS x86_64.
+- **Known Arch limitation:** package counting currently assumes the default `/var/lib/pacman/local` path; custom `DBPath` / `RootDir` settings in `pacman.conf` are not resolved yet. Add config-aware path resolution only with tests for includes, overrides, and failure handling.
 - **Not a current release promise:** Debian, Fedora, Alpine, other distributions, non-x86_64 architectures, BSD, macOS, and Windows.
 - Keep detection code Linux-native and standards-based so future portability remains possible, but do not spend this phase claiming or building a broad compatibility matrix.
 - Package creation, AUR publication, .deb/.rpm work, and release automation are deliberately deferred until the three engineering workstreams and baseline audit are in good shape.
@@ -157,6 +158,7 @@ The first source review after setting these priorities found the following concr
 - [ ] Add regression tests for multiple GPUs, displays, batteries, network interfaces, and CPUFreq policies.
 - [x] Add a CI source audit that flags common subprocess APIs, socket APIs, and direct network-client dependencies; treat it as defense-in-depth rather than a formal proof.
 - [ ] Verify output on the primary Arch Linux x86_64 target, including the user's CachyOS systems; expand to AMD, VM, and minimal/container environments only when available and useful.
+- [ ] Decide and implement safe handling of custom pacman `DBPath` / `RootDir` configuration, including `Include` semantics; current behavior intentionally supports only the default local database path.
 
 **Audit fixes completed on 2026-11-05**
 
