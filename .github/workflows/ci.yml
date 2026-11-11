@@ -30,6 +30,9 @@ jobs:
       - name: Tests
         run: cargo test --all-targets
 
+      - name: Shell script syntax
+        run: bash -n scripts/*.sh
+
       - name: Runtime invariant audit
         run: bash scripts/check-runtime-invariants.sh
 
