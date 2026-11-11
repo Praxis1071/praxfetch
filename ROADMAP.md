@@ -3,7 +3,7 @@
 > **Purpose:** Build praxfetch into a dependable, fast, maintainable Linux system-information CLI without sacrificing its defining constraints.
 >
 > **Last reviewed:** 2026-11-11  
-> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 43 automated tests; latest verified CI: [run #144](https://github.com/Praxis1071/praxfetch/actions/runs/43090933518), commit `4fe659fe809208d34bc25f9a8ba761102c0eb0a5`.
+> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 43 automated tests; latest verified CI: [run #147](https://github.com/Praxis1071/praxfetch/actions/runs/43093488695), commit `47c0e438014a026a57ceb8ed2b70fc5f98dad728`.
 
 This is the project's source of truth for development priorities. Keep it updated as work lands. A checkbox is only marked complete after the implementation is present, relevant tests pass, documentation is updated, and the latest applicable CI run succeeds.
 
@@ -136,7 +136,8 @@ The phases are ordered by dependency and risk, not by how visually impressive a 
 
 The first source review after setting these priorities found the following concrete work. These are observations, not claims that the whole audit is complete.
 
-- [ ] **P0 / Performance:** `collect()` currently executes CPU, temperature, battery, disk, GPU, display, and network detection even though the approved default output uses only user/hostname, OS, host, kernel, uptime, package count, and memory. Measure and then stop collecting hidden fields on the default path; keep future optional modules possible without paying their cost by default.
+- [x] **P0 / Performance:** the default `collect()` path no longer executes CPU, temperature, battery, disk, GPU, display, network, shell, desktop, terminal, or load-average detection because none of those fields appear in the approved output. The detector implementations remain available for future explicitly requested modules.
+- [ ] **P0 / Performance:** benchmark the change on Arch/CachyOS hardware and record before/after startup latency; the code change is CI-verified, but its real-device speedup has not yet been measured.
 - [ ] **P0 / Code structure:** `src/info.rs` currently owns a large mixture of filesystem access, parsing, aggregation, and formatting. Extract modules incrementally with behavior-preserving tests; do not perform a one-shot rewrite.
 - [ ] **P1 / Reproducibility:** the repository currently has no `Cargo.lock`; introduce and commit it before relying on `--locked` CI or release builds.
 - [ ] **P1 / CI security:** workflow actions currently use movable version tags (for example, `actions/checkout@v4`) rather than verified full commit SHAs. Pin actions and use least-privilege workflow permissions.
