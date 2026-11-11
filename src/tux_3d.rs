@@ -247,7 +247,9 @@ impl TuxModel {
 
         let mut parts = Vec::with_capacity(definitions.len());
         for (index, (name, color, center, radii)) in definitions.into_iter().enumerate() {
-            let id = MODEL_ID_BASE + index as u32;
+            let id = MODEL_ID_BASE
+                .wrapping_add(std::process::id().wrapping_mul(16))
+                .wrapping_add(index as u32);
             let settings = RattyGraphicSettings::new(format!("praxfetch-tux-{name}.obj"))
                 .id(id)
                 .format(ObjectFormat::Obj)
@@ -261,6 +263,7 @@ impl TuxModel {
             if let Err(error) =
                 graphic.register_payload_with_name(mesh.as_bytes(), Some("praxfetch-tux.obj"))
             {
+                let _ = graphic.clear();
                 for registered in &parts {
                     let _ = registered.clear();
                 }
