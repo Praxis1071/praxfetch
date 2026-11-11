@@ -276,6 +276,7 @@ The first source review after setting these priorities found the following concr
 - [ ] Define and publish the Arch Linux x86_64 support contract and its known limitations.
 - [ ] Review the CLI and JSON schema for compatibility before 1.0.
 - [ ] Document installation, source build, binary installation, troubleshooting, and known limitations.
+- [ ] Validate the user-local installer (`scripts/install.sh`) on Bash, Zsh, and Fish; it must build the release binary, install it under Cargo's user bin directory, and configure PATH without root privileges.
 - [ ] Produce release binaries for the explicitly supported Arch Linux x86_64 target from clean CI jobs.
 - [ ] Publish checksums and release notes describing user-visible changes and limitations.
 - [ ] Test upgrade behavior and ensure old command-line usage remains valid.
