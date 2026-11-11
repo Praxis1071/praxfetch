@@ -165,8 +165,8 @@ fn interact(model: &mut TuxModel, area: Rect) -> io::Result<()> {
                     MouseEventKind::Up(MouseButton::Left) => {
                         drag_position = None;
                     }
-                    MouseEventKind::ScrollUp if inside => model.zoom(0.08)?,
-                    MouseEventKind::ScrollDown if inside => model.zoom(-0.08)?,
+                    MouseEventKind::ScrollUp if inside => model.zoom(0.05)?,
+                    MouseEventKind::ScrollDown if inside => model.zoom(-0.05)?,
                     _ => {}
                 }
             }
@@ -187,8 +187,8 @@ impl TuxModel {
         let definitions = [
             ("body", [20, 27, 39], [0.0, -0.05, 0.0], [0.56, 0.78, 0.40]),
             ("head", [20, 27, 39], [0.0, 0.68, 0.0], [0.43, 0.43, 0.36]),
-            ("left-wing", [20, 27, 39], [-0.48, -0.12, 0.02], [0.16, 0.47, 0.23]),
-            ("right-wing", [20, 27, 39], [0.48, -0.12, 0.02], [0.16, 0.47, 0.23]),
+            ("left-wing", [20, 27, 39], [-0.52, -0.12, 0.02], [0.25, 0.47, 0.23]),
+            ("right-wing", [20, 27, 39], [0.52, -0.12, 0.02], [0.25, 0.47, 0.23]),
             ("belly", [238, 242, 245], [0.0, -0.12, 0.34], [0.39, 0.60, 0.12]),
             ("face", [238, 242, 245], [0.0, 0.70, 0.31], [0.27, 0.23, 0.09]),
             ("left-eye", [245, 248, 250], [-0.14, 0.80, 0.39], [0.075, 0.09, 0.055]),
@@ -212,7 +212,7 @@ impl TuxModel {
                 .format(ObjectFormat::Obj)
                 .normalize(false)
                 .animate(false)
-                .scale(0.95)
+                .scale(0.42)
                 .color(color)
                 .brightness(1.0);
 
@@ -234,7 +234,7 @@ impl TuxModel {
             parts,
             yaw: -18.0,
             pitch: 5.0,
-            scale: 0.95,
+            scale: 0.42,
         })
     }
 
@@ -253,7 +253,7 @@ impl TuxModel {
     }
 
     fn zoom(&mut self, delta: f32) -> io::Result<()> {
-        self.scale = (self.scale + delta).clamp(0.35, 2.2);
+        self.scale = (self.scale + delta).clamp(0.18, 1.1);
         self.update()
     }
 
