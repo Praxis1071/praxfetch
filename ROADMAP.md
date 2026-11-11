@@ -132,26 +132,27 @@ These three workstreams are the project's central quality goals. They take prece
 
 ## 4. Optional interactive 3D Tux
 
-The user requested a three-dimensional Linux penguin that can be manipulated with the mouse, using Orhun Parmaksız's Ratty project.
+The user requested an interactive three-dimensional Linux penguin using Orhun Parmaksız's Ratty project, while preserving Praxfetch's original compact terminal presentation.
 
-- [x] Research Ratty and its Ratty Graphics Protocol (RGP); confirm the upstream `ratatui-ratty` widget is MIT licensed.
-- [ ] Keep the existing minimal CLI presentation as the default; add an explicit `--3d` entry point instead of changing normal startup (implemented; awaiting CI verification).
-- [ ] Generate an original multi-part Tux mesh in memory; use separate colored OBJ parts so the model has a black body, white belly/face/eyes, and orange beak/feet (implemented; awaiting geometry and Ratty validation).
-- [ ] Add mouse drag rotation, wheel zoom, and keyboard exit behavior to the optional view (implemented; awaiting interactive validation).
-- [ ] Verify the new mode in Ratty itself; ordinary terminals do not implement RGP and cannot render inline 3D objects.
-- [ ] Validate the new dependencies, model geometry, terminal cleanup, and unchanged default output on CI and real Ratty.
-- [ ] Test graceful cleanup after normal exit, terminal resize, and I/O errors; ensure Praxfetch deletes only its own RGP object IDs.
-- [ ] Capture a visual verification on the user's CachyOS desktop/laptop before considering the feature complete.
+- [x] Research Ratty, the current Ratty Graphics Protocol (RGP), and the MIT-licensed `ratatui-ratty` widget.
+- [x] Keep the classic seven-line output as the only layout; `--3d` replaces only the Tux logo column and leaves all six system fields in their original positions.
+- [x] Use inline RGP placement at the terminal cursor's actual starting row/column; do not enter an alternate screen, clear the terminal, or run a full-screen TUI.
+- [x] Use original procedurally generated, separately colored OBJ parts for Tux's black body, white belly/face/eyes, and orange beak/feet.
+- [x] Add left-button drag rotation and wheel zoom using terminal mouse events; restore raw mode and mouse reporting on exit.
+- [x] Delete only Praxfetch's own RGP object IDs and restore the original ASCII logo in the same output area.
+- [ ] Verify the inline placement, model proportions/shading, mouse interaction, and cleanup in the real Ratty terminal.
+- [ ] Validate formatting, compilation, tests, Clippy, release build, and unchanged default output on CI and CachyOS.
+- [ ] Test terminal resize, interrupted execution, unsupported terminals, and I/O-error cleanup.
 
-**Acceptance:** `praxfetch` retains the exact seven-line default output; `praxfetch --3d` renders a recognizable shaded Tux inside Ratty, supports smooth left-drag rotation and wheel zoom, restores the terminal on exit, and does not delete unrelated RGP objects. The normal CLI remains usable without Ratty.
+**Acceptance:** `praxfetch` retains the exact seven-line default output; `praxfetch --3d` keeps the same seven-line layout and replaces only the logo with a recognizable shaded Tux rendered inline by Ratty. Left-drag rotates it, the wheel zooms, and Q/Esc exits. No alternate screen or full-screen UI is allowed. On exit the ASCII logo returns, mouse capture/raw mode are restored, and unrelated RGP objects remain untouched.
 
 ### Research references
 
 - [Orhun Parmaksız's Ratty terminal emulator](https://github.com/orhun/ratty)
-- [Ratty Graphics Protocol specification](https://github.com/orhun/ratty/blob/main/protocols/graphics.md)
-- [ratatui-ratty 0.4.0 API and MIT license](https://docs.rs/crate/ratatui-ratty/0.4.0)
+- [Current Ratty Graphics Protocol specification](https://github.com/orhun/ratty/blob/main/protocols/graphics.md)
+- [ratatui-ratty 0.4.0 API, payload registration, inline placement, and MIT license](https://docs.rs/crate/ratatui-ratty/0.4.0)
 - [Ratty's interactive Rubik's Cube example](https://github.com/orhun/ratty/blob/main/widget/examples/rubiks_cube.rs)
-- [Ratatui backend and terminal event handling](https://ratatui.rs/concepts/backends/)
+- [Crossterm 0.29 mouse and cursor APIs](https://docs.rs/crossterm/0.29.0/crossterm/)
 
 ## 5. Prioritized implementation roadmap
 
