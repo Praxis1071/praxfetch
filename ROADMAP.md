@@ -22,6 +22,7 @@ praxfetch should be a small, trustworthy, Linux-native alternative in the fastfe
 - [x] **MIT license.** Keep MIT for now: Fastfetch is also MIT-licensed; changing Praxfetch to GPLv3 is a project-policy choice, not a technical requirement. Revisit only if copyleft becomes an explicit project goal.
 - [ ] **Arch-first compatibility contract:** define and test Arch Linux x86_64 as the initial target, with CachyOS as a first-class validation environment; document architecture, libc, toolchain, and kernel-interface assumptions.
 - [ ] **Machine-readable output contract:** define and test stable JSON field names, types, nullability, and versioning before calling JSON output stable.
+- [x] **Optional Ratty 3D mascot direction:** preserve the seven-line default output and expose the interactive Tux model only through an explicit `--3d` mode; Ratty is an optional terminal-side renderer, not a runtime dependency to launch or manage.
 
 ### Engineering rules
 
@@ -129,7 +130,30 @@ These three workstreams are the project's central quality goals. They take prece
 - [x] Automated tests cover important parsing and edge cases, including OS metadata, CPU topology/frequency, CPU temperature selection, PCI IDs, mountinfo, battery aggregation, and formatting.
 - [x] Latest verified baseline: 43 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #142](https://github.com/Praxis1071/praxfetch/actions/runs/43090814311).
 
-## 4. Prioritized implementation roadmap
+## 4. Optional interactive 3D Tux
+
+The user requested a three-dimensional Linux penguin that can be manipulated with the mouse, using Orhun Parmaksız's Ratty project.
+
+- [x] Research Ratty and its Ratty Graphics Protocol (RGP); confirm the upstream `ratatui-ratty` widget is MIT licensed.
+- [x] Keep the existing minimal CLI presentation as the default; add an explicit `--3d` entry point instead of changing normal startup.
+- [x] Generate an original multi-part Tux mesh in memory; use separate colored OBJ parts so the model has a black body, white belly/face/eyes, and orange beak/feet.
+- [x] Add mouse drag rotation, wheel zoom, and keyboard exit behavior to the optional view.
+- [ ] Verify the new mode in Ratty itself; ordinary terminals do not implement RGP and cannot render inline 3D objects.
+- [ ] Validate the new dependencies, model geometry, terminal cleanup, and unchanged default output on CI and real Ratty.
+- [ ] Test graceful cleanup after normal exit, terminal resize, and I/O errors; ensure Praxfetch deletes only its own RGP object IDs.
+- [ ] Capture a visual verification on the user's CachyOS desktop/laptop before considering the feature complete.
+
+**Acceptance:** `praxfetch` retains the exact seven-line default output; `praxfetch --3d` renders a recognizable shaded Tux inside Ratty, supports smooth left-drag rotation and wheel zoom, restores the terminal on exit, and does not delete unrelated RGP objects. The normal CLI remains usable without Ratty.
+
+### Research references
+
+- [Orhun Parmaksız's Ratty terminal emulator](https://github.com/orhun/ratty)
+- [Ratty Graphics Protocol specification](https://github.com/orhun/ratty/blob/main/protocols/graphics.md)
+- [ratatui-ratty 0.4.0 API and MIT license](https://docs.rs/crate/ratatui-ratty/0.4.0)
+- [Ratty's interactive Rubik's Cube example](https://github.com/orhun/ratty/blob/main/widget/examples/rubiks_cube.rs)
+- [Ratatui backend and terminal event handling](https://ratatui.rs/concepts/backends/)
+
+## 5. Prioritized implementation roadmap
 
 The phases are ordered by dependency and risk, not by how visually impressive a feature looks. Finish the acceptance criteria for a phase before moving its unfinished work into the completed column.
 
