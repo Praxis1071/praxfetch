@@ -43,7 +43,10 @@ fn default_output_contains_only_the_approved_seven_lines() {
         ["os", "host", "kernel", "uptime", "pkgs", "memory"],
         "unexpected system fields:\n{stdout}"
     );
-    assert!(!stdout.contains('\u{1b}'), "ANSI escape found with --no-color");
+    assert!(
+        !stdout.contains('\u{1b}'),
+        "ANSI escape found with --no-color"
+    );
 }
 
 #[test]
@@ -52,7 +55,10 @@ fn no_color_environment_variable_disables_ansi_sequences() {
     assert!(output.status.success());
 
     let stdout = String::from_utf8(output.stdout).expect("output should be UTF-8");
-    assert!(!stdout.contains('\u{1b}'), "ANSI escape found with NO_COLOR");
+    assert!(
+        !stdout.contains('\u{1b}'),
+        "ANSI escape found with NO_COLOR"
+    );
 }
 
 #[test]
