@@ -71,7 +71,7 @@ fn count_package_directories(path: &Path) -> Option<usize> {
     count_package_entries(fs::read_dir(path).ok()?)
 }
 
-fn count_package_entries(entries: fs::ReadDir) -> Option<usize> {
+fn count_package_entries(mut entries: fs::ReadDir) -> Option<usize> {
     entries.try_fold(0usize, |count, entry| {
         let entry = entry.ok()?;
         let is_directory = entry.file_type().ok()?.is_dir();
