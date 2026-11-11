@@ -32,6 +32,7 @@ pub struct CpuInfo {
 }
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct TemperatureInfo {
     pub cpu_celsius: Option<f32>,
 }
@@ -49,6 +50,7 @@ pub struct SwapInfo {
 }
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct PackageInfo {
     pub manager: String,
     pub count: Option<usize>,
@@ -83,17 +85,20 @@ struct MountEntry {
 }
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct GpuInfo {
     pub devices: Vec<GpuDevice>,
 }
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct GpuDevice {
     pub name: String,
     pub driver: String,
 }
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct DisplayInfo {
     pub devices: Vec<DisplayDevice>,
 }
@@ -362,6 +367,7 @@ fn read_network() -> NetworkInfo {
     result
 }
 
+#[allow(dead_code)]
 pub struct SystemInfo {
     pub user: String,
     pub hostname: String,
@@ -1413,6 +1419,7 @@ pub fn memory_compact(m: &MemoryInfo) -> String {
     format!("{used_mb}M / {total_mb}M")
 }
 
+#[allow(dead_code)]
 pub fn memory(m: &MemoryInfo) -> String {
     let Some(total) = m.total_kb.filter(|total| *total > 0) else {
         return "unknown".into();
@@ -1434,6 +1441,7 @@ pub fn memory(m: &MemoryInfo) -> String {
     )
 }
 
+#[allow(dead_code)]
 pub fn swap(s: &SwapInfo) -> String {
     let Some(total) = s.total_kb else {
         return "unknown".into();
@@ -1457,6 +1465,7 @@ pub fn swap(s: &SwapInfo) -> String {
     )
 }
 
+#[allow(dead_code)]
 pub fn disk(d: &DiskInfo) -> String {
     if d.total_bytes == 0 {
         return "unknown".into();
@@ -1471,6 +1480,7 @@ pub fn disk(d: &DiskInfo) -> String {
     )
 }
 
+#[allow(dead_code)]
 pub fn battery(b: &BatteryInfo) -> String {
     let Some(percent) = b.percent else {
         return "none".into();
@@ -1487,6 +1497,7 @@ pub fn battery(b: &BatteryInfo) -> String {
     format!("{percent:.0}% ({state})")
 }
 
+#[allow(dead_code)]
 pub fn gpu(g: &GpuInfo) -> String {
     if g.devices.is_empty() {
         return "unknown".into();
@@ -1506,6 +1517,7 @@ pub fn gpu(g: &GpuInfo) -> String {
         .join(" / ")
 }
 
+#[allow(dead_code)]
 pub fn display(d: &DisplayInfo) -> String {
     if d.devices.is_empty() {
         return "none".into();
@@ -1518,6 +1530,7 @@ pub fn display(d: &DisplayInfo) -> String {
         .join(" / ")
 }
 
+#[allow(dead_code)]
 pub fn network(n: &NetworkInfo) -> String {
     if n.interfaces == 0 {
         return "none".into();
@@ -1529,6 +1542,7 @@ pub fn network(n: &NetworkInfo) -> String {
     )
 }
 
+#[allow(dead_code)]
 pub fn shell(shell: &str, version: &str) -> String {
     let name = Path::new(shell)
         .file_name()
