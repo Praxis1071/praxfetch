@@ -1,10 +1,13 @@
 use std::io::{self, Write};
 
+use colored::Colorize;
+
 use crate::{ascii, info::SystemInfo};
 
 /// The classic seven-line Praxfetch presentation, shared by normal and 3D modes.
 pub struct OutputLayout {
     logo: Vec<String>,
+    colored_logo_columns: Vec<String>,
     logo_column_width: usize,
     right_columns: Vec<String>,
 }
@@ -48,6 +51,14 @@ impl OutputLayout {
             .max()
             .unwrap_or(0);
 
+        let colored_logo_columns = logo
+            .iter()
+            .map(|line| {
+                let padded = ascii::pad_logo_line(line, ascii::logo_width(&logo) + 4);
+                ascii::colorize_logo_line(&padded, &system.os)
+            })
+            .collect();
+
         let right_columns = fields
             .iter()
             .map(|(key, value)| {
@@ -63,6 +74,7 @@ impl OutputLayout {
         Self {
             logo_column_width: ascii::logo_width(&logo) + 4,
             logo,
+            colored_logo_columns,
             right_columns,
         }
     }
@@ -120,12 +132,9 @@ impl OutputLayout {
     }
 
     fn logo_column(&self, row: usize) -> String {
-        match self.logo.get(row) {
-            Some(line) => {
-                let padded = ascii::pad_logo_line(line, self.logo_column_width);
-                ascii::colorize_logo_line(&padded, &crate::info::collect().os)
-            }
-            None => " ".repeat(self.logo_column_width),
-        }
+        self.colored_logo_columns
+            .get(row)
+            .cloned()
+            .unwrap_or_else(|| " ".repeat(self.logo_column_width))
     }
 }
