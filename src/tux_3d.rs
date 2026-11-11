@@ -35,7 +35,10 @@ pub fn run() -> io::Result<()> {
 
     let result = (|| {
         execute!(io::stdout(), EnableMouseCapture)?;
-        activate_tux_camera()?;
+        if let Err(error) = activate_tux_camera() {
+            let _ = execute!(io::stdout(), DisableMouseCapture);
+            return Err(error);
+        }
         let result = run_app(&mut terminal);
         let camera_cleanup = activate_default_camera_slot();
         let mouse_cleanup = execute!(io::stdout(), DisableMouseCapture);
