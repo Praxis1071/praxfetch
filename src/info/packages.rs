@@ -6,11 +6,22 @@ use super::PackageInfo;
 
 pub(super) fn read_packages() -> PackageInfo {
     let pacman_db = Path::new("/var/lib/pacman/local");
-    if pacman_db.exists() {
-        return PackageInfo {
-            manager: "pacman".into(),
-            count: count_package_directories(pacman_db),
-        };
+    match fs::read_dir(pacman_db) {
+        Ok(entries) => {
+            return PackageInfo {
+                manager: "pacman".into(),
+                count: count_package_entries(entries),
+            };
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        // If the Pacman database exists but cannot be scanned, report its
+        // count as unavailable instead of silently switching managers.
+        Err(_) => {
+            return PackageInfo {
+                manager: "pacman".into(),
+                count: None,
+            };
+        }
     }
 
     let dpkg_status = Path::new("/var/lib/dpkg/status");
@@ -57,7 +68,11 @@ pub(super) fn read_packages() -> PackageInfo {
 }
 
 fn count_package_directories(path: &Path) -> Option<usize> {
-    fs::read_dir(path).ok()?.try_fold(0usize, |count, entry| {
+    count_package_entries(fs::read_dir(path).ok()?)
+}
+
+fn count_package_entries(entries: fs::ReadDir) -> Option<usize> {
+    entries.try_fold(0usize, |count, entry| {
         let entry = entry.ok()?;
         let is_directory = entry.file_type().ok()?.is_dir();
         if is_directory {
