@@ -89,11 +89,11 @@ impl TerminalMode {
             mouse: false,
         };
 
+        mode.mouse = true;
         if let Err(error) = execute!(io::stdout(), EnableMouseCapture) {
             let _ = mode.restore();
             return Err(error);
         }
-        mode.mouse = true;
         Ok(mode)
     }
 
@@ -101,19 +101,18 @@ impl TerminalMode {
         let mut first_error = None;
 
         if self.mouse {
-            if let Err(error) = execute!(io::stdout(), DisableMouseCapture) {
-                first_error = Some(error);
+            match execute!(io::stdout(), DisableMouseCapture) {
+                Ok(()) => self.mouse = false,
+                Err(error) => first_error = Some(error),
             }
-            self.mouse = false;
         }
 
         if self.raw {
-            if let Err(error) = terminal::disable_raw_mode() {
-                if first_error.is_none() {
-                    first_error = Some(error);
-                }
+            match terminal::disable_raw_mode() {
+                Ok(()) => self.raw = false,
+                Err(error) if first_error.is_none() => first_error = Some(error),
+                Err(_) => {}
             }
-            self.raw = false;
         }
 
         match first_error {
