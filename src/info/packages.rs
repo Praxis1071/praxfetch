@@ -67,6 +67,7 @@ pub(super) fn read_packages() -> PackageInfo {
     }
 }
 
+#[cfg(test)]
 fn count_package_directories(path: &Path) -> Option<usize> {
     count_package_entries(fs::read_dir(path).ok()?)
 }
