@@ -1951,10 +1951,8 @@ not a valid mount line\n\
 
     #[test]
     fn pacman_package_counter_counts_only_complete_directory_entries() {
-        let root = std::env::temp_dir().join(format!(
-            "praxfetch-pacman-db-test-{}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("praxfetch-pacman-db-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("alpha-1.0-1")).unwrap();
         fs::create_dir_all(root.join("beta-2.0-1")).unwrap();
