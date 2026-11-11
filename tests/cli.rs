@@ -76,6 +76,19 @@ fn help_and_version_exit_successfully() {
     assert!(version.starts_with("praxfetch "));
 }
 
+
+#[test]
+fn three_d_mode_requires_a_real_terminal() {
+    let output = run_praxfetch(&["--3d"], false);
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8(output.stderr).expect("error output should be UTF-8");
+    assert!(
+        stderr.contains("interactive 3D mode requires a terminal"),
+        "unexpected diagnostic: {stderr}"
+    );
+}
+
 #[test]
 fn invalid_arguments_fail_with_a_diagnostic() {
     let output = run_praxfetch(&["--not-a-real-option"], false);
