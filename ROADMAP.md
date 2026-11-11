@@ -56,10 +56,11 @@ praxfetch should be a small, trustworthy, Linux-native alternative in the fastfe
 ### CLI, documentation, and quality gates
 
 - [x] `--no-color`, `NO_COLOR`, `--help`, and `--version`.
+- [x] Keep the default human output limited to username@hostname, OS, host product, kernel, uptime, package count, and used/total memory; render memory in whole MiB and remove the color-block footer.
 - [x] README documents the runtime constraints, build commands, current modules, and the 5 ms goal as a target rather than a guarantee.
 - [x] GitHub Actions checks formatting, compilation, tests, Clippy warnings, and release compilation.
 - [x] Automated tests cover important parsing and edge cases, including OS metadata, CPU topology/frequency, CPU temperature selection, PCI IDs, mountinfo, battery aggregation, and formatting.
-- [x] Latest verified baseline: 41 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #132](https://github.com/Praxis1071/praxfetch/actions/runs/41991940742).
+- [x] Latest verified baseline: 43 tests passed; format, compile, source invariant audit, Clippy, and release build passed in [Actions run #142](https://github.com/Praxis1071/praxfetch/actions/runs/43090814311).
 
 ## 3. Prioritized implementation roadmap
 
