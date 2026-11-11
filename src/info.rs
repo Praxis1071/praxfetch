@@ -1975,6 +1975,4 @@ not a valid mount line\n\
     fn battery_without_hardware_is_none() {
         assert_eq!(battery(&BatteryInfo::default()), "none");
     }
-
-
 }
