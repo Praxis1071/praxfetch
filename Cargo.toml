@@ -12,6 +12,7 @@ clap = { version = "4.6.7", features = ["derive"] }
 colored = "3.1.1"
 libc = "0.2.190"
 ratatui = "0.30"
+# Match Ratatui's backend version to avoid separate mouse-event queues.
 crossterm = "0.29"
 ratatui-ratty = "0.4.0"
 
