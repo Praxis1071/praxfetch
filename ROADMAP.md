@@ -187,7 +187,8 @@ The first source review after setting these priorities found the following concr
 
 - [ ] Split the large `src/info.rs` into focused modules: `os`, `host`, `cpu`, `memory`, `storage`, `battery`, `gpu`, `display`, `network`, and `packages`.
 - [ ] Move shared data structures into a small, clearly owned model layer; avoid circular module dependencies.
-- [ ] Separate raw file reading, pure parsing/normalization, validated system models, and presentation formatting.
+- [x] Extract os-release value parsing into a focused pure module (`src/info/os_release.rs`) with independent quote/escape regression tests.
+- [ ] Separate the remaining raw file reading, pure parsing/normalization, validated system models, and presentation formatting.
 - [ ] Keep system paths and file reads injectable at parser/detector boundaries where this improves tests; do not build an elaborate abstraction framework.
 - [ ] Keep collection orchestration explicit. Avoid global mutable state, hidden caches, plugin registries, and unnecessary async code.
 - [ ] Preserve existing public output and CLI behavior during the refactor.
