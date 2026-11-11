@@ -188,6 +188,7 @@ The first source review after setting these priorities found the following concr
 - [ ] Split the large `src/info.rs` into focused modules: `os`, `host`, `cpu`, `memory`, `storage`, `battery`, `gpu`, `display`, `network`, and `packages`.
 - [ ] Move shared data structures into a small, clearly owned model layer; avoid circular module dependencies.
 - [x] Extract os-release value parsing into a focused pure module (`src/info/os_release.rs`) with independent quote/escape regression tests.
+- [x] Add precise `// SAFETY:` justifications to both `statvfs` FFI unsafe blocks.
 - [ ] Separate the remaining raw file reading, pure parsing/normalization, validated system models, and presentation formatting.
 - [ ] Keep system paths and file reads injectable at parser/detector boundaries where this improves tests; do not build an elaborate abstraction framework.
 - [ ] Keep collection orchestration explicit. Avoid global mutable state, hidden caches, plugin registries, and unnecessary async code.
@@ -345,6 +346,8 @@ Use primary documentation first and revisit these links when implementing the re
 - [Criterion.rs statistical benchmarking](https://criterion-rs.github.io/book/)
 - [GitHub Actions secure use and SHA pinning](https://docs.github.com/en/actions/reference/security/secure-use)
 - [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
+- [Rustonomicon — how safe and unsafe Rust interact](https://doc.rust-lang.org/stable/nomicon/safe-unsafe-meaning.html)
+- [Linux kernel Rust coding guidelines — SAFETY comments](https://www.kernel.org/doc/html/next/rust/coding-guidelines.html)
 - [The Rust Programming Language — error handling](https://doc.rust-lang.org/book/ch09-00-error-handling.html)
 - [Rust By Example — error handling and panic guidance](https://doc.rust-lang.org/rust-by-example/error.html)
 - [Clippy lint catalogue — correctness, suspicious, and performance lints](https://rust-lang.github.io/rust-clippy/master/index.html)
