@@ -15,7 +15,10 @@ struct Args {
     #[arg(long, help = "Disable ANSI colors")]
     no_color: bool,
 
-    #[arg(long = "3d", help = "Open the interactive 3D Tux view (requires Ratty terminal)")]
+    #[arg(
+        long = "3d",
+        help = "Open the interactive 3D Tux view (requires Ratty terminal)"
+    )]
     tux_3d: bool,
 }
 
