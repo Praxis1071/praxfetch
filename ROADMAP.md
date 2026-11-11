@@ -3,7 +3,7 @@
 > **Purpose:** Build praxfetch into a dependable, fast, maintainable Linux system-information CLI without sacrificing its defining constraints.
 >
 > **Last reviewed:** 2026-11-11  
-> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 48 automated tests; latest verified implementation CI: [run #160](https://github.com/Praxis1071/praxfetch/actions/runs/43094431295), commit `698dd800caeafcffc22fee39da6ddf509ec342c5`.
+> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 48 automated tests; latest fully green single-run CI before the Arch container job: [run #178](https://github.com/Praxis1071/praxfetch/actions/runs/43095033627), commit `600feb4f37ea80a88c2bb5832a1571cd1b24cc72`.
 
 This is the project's source of truth for development priorities. Keep it updated as work lands. A checkbox is only marked complete after the implementation is present, relevant tests pass, documentation is updated, and the latest applicable CI run succeeds.
 
@@ -246,7 +246,7 @@ The first source review after setting these priorities found the following concr
 - [ ] Use `Cargo.lock` and `--locked` in CI for reproducible dependency resolution.
 - [ ] Add dependency/advisory review (for example, `cargo audit`) with a documented policy for advisories and exceptions.
 - [ ] Add a supported Rust toolchain/MSRV policy and test it deliberately; do not accidentally promise an untested MSRV.
-- [ ] Keep CI aligned with the current Arch-first x86_64 scope; add aarch64 or other targets only after they become explicit support commitments.
+- [ ] Validate the new native `archlinux:base-devel` CI job end-to-end; keep CI aligned with Arch Linux x86_64 and add aarch64 only after it becomes an explicit support commitment.
 - [ ] Keep formatting, check, tests, Clippy with warnings denied, and release build as required gates.
 - [x] Add integration checks for the current CLI contract: `--help`, `--version`, `--no-color`, `NO_COLOR`, exact default fields, and invalid-argument exit status. JSON checks remain deferred until JSON output exists.
 - [ ] Consider scheduled dependency update checks and a documented update/review cadence.
@@ -319,6 +319,8 @@ A change is complete only when all applicable items below are satisfied:
 - [Arch makepkg manual](https://man.archlinux.org/man/makepkg.8)
 - [Fastfetch upstream repository and MIT license](https://github.com/fastfetch-cli/fastfetch)
 - [Arch Linux pacman local database and database paths](https://wiki.archlinux.org/title/Pacman)
+- [ArchWiki Rust — rustfmt and Clippy are included with the `rust` package](https://wiki.archlinux.org/title/Rust)
+- [actions/checkout changelog — Node.js 24 and current v7 releases](https://github.com/actions/checkout/blob/main/CHANGELOG.md)
 - [pacman.conf(5) — DBPath and default database directory](https://man.archlinux.org/man/pacman.conf.5.en)
 
 Use primary documentation first and revisit these links when implementing the related phase:
