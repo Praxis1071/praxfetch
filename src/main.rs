@@ -26,9 +26,7 @@ fn main() {
     let s = info::collect();
     let logo = ascii::logo(&s.os);
 
-    let host = if !s.host.vendor.is_empty() && !s.host.product.is_empty() {
-        format!("{} {}", s.host.vendor, s.host.product)
-    } else if !s.host.product.is_empty() {
+    let host = if !s.host.product.is_empty() {
         s.host.product.clone()
     } else if !s.host.vendor.is_empty() {
         s.host.vendor.clone()
