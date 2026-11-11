@@ -1,9 +1,6 @@
 //! Interactive 3D Tux view powered by Orhun Parmaksız's Ratty Graphics Protocol.
 
-use std::{
-    io::{self, Write},
-    time::Duration,
-};
+use std::{io::{self, Write}, time::Duration};
 
 use crossterm::{
     event::{
@@ -111,7 +108,7 @@ impl TuxApp {
         }
     }
 
-    fn draw(&mut self, frame: &mut Frame) {
+    fn draw(&mut self, frame: &mut Frame<'_>) {
         let rows = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Min(1), Constraint::Length(1)])
