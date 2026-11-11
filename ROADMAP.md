@@ -188,6 +188,7 @@ The first source review after setting these priorities found the following concr
 - [ ] Split the large `src/info.rs` into focused modules: `os`, `host`, `cpu`, `memory`, `storage`, `battery`, `gpu`, `display`, `network`, and `packages`.
 - [ ] Move shared data structures into a small, clearly owned model layer; avoid circular module dependencies.
 - [x] Extract os-release value parsing into a focused pure module (`src/info/os_release.rs`) with independent quote/escape regression tests.
+- [x] Extract package database detection and Pacman/dpkg/APK counters into `src/info/packages.rs`; keep Arch pacman counting directly tested.
 - [x] Add precise `// SAFETY:` justifications to both `statvfs` FFI unsafe blocks.
 - [ ] Separate the remaining raw file reading, pure parsing/normalization, validated system models, and presentation formatting.
 - [ ] Keep system paths and file reads injectable at parser/detector boundaries where this improves tests; do not build an elaborate abstraction framework.
