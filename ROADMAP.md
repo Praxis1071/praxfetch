@@ -3,7 +3,7 @@
 > **Purpose:** Build praxfetch into a dependable, fast, maintainable Linux system-information CLI without sacrificing its defining constraints.
 >
 > **Last reviewed:** 2026-11-11  
-> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 47 automated tests; latest verified CI before this roadmap update: [run #153](https://github.com/Praxis1071/praxfetch/actions/runs/43094125811), commit `70c9afa2d4e9746cc389cda5c6bc84a1a81e18f9`.
+> **Current baseline:** `0.1.0` · Rust 2021 · MIT · 48 automated tests; latest verified implementation CI: [run #160](https://github.com/Praxis1071/praxfetch/actions/runs/43094431295), commit `698dd800caeafcffc22fee39da6ddf509ec342c5`.
 
 This is the project's source of truth for development priorities. Keep it updated as work lands. A checkbox is only marked complete after the implementation is present, relevant tests pass, documentation is updated, and the latest applicable CI run succeeds.
 
@@ -141,7 +141,7 @@ The first source review after setting these priorities found the following concr
 - [ ] **P0 / Code structure:** `src/info.rs` currently owns a large mixture of filesystem access, parsing, aggregation, and formatting. Extract modules incrementally with behavior-preserving tests; do not perform a one-shot rewrite.
 - [ ] **P1 / Reproducibility:** the repository currently has no `Cargo.lock`; introduce and commit it before relying on `--locked` CI or release builds.
 - [x] **P1 / CI security:** pin all current workflow actions to verified full commit SHAs and restrict `GITHUB_TOKEN` to `contents: read`; review and verify every action update.
-- [x] **P1 / Test coverage:** add executable-level regression tests for the exact seven-line default contract, field order, `--no-color`, `NO_COLOR`, `--help`, `--version`, and invalid-argument exit behavior.
+- [x] **P1 / Test coverage:** add executable-level regression tests for the exact seven-line default contract, field order, `--no-color`, `NO_COLOR`, `--help`, `--version`, and invalid-argument exit behavior; add a filesystem fixture test for Arch pacman local-database counting.
 - [ ] **Scope review:** package database readers for non-Arch managers remain in the code. Decide whether to retain them as low-cost parser portability or remove them if they materially increase maintenance burden; do not remove functionality without measurements and a documented decision.
 
 ### Phase 1 — Stabilize and establish a trustworthy baseline
@@ -153,6 +153,7 @@ The first source review after setting these priorities found the following concr
 - [ ] Revisit CPU temperature selection and validation against actual hwmon driver conventions, including package/die/core labels and drivers that expose non-temperature channels.
 - [ ] Revisit storage aggregation semantics: distinguish filesystems/mounts from physical disks; avoid double-counting subvolumes, overlay mounts, network mounts, and unusual device mappings.
 - [ ] Add fixture-based parser tests for malformed, truncated, duplicate, reordered, and missing fields.
+- [x] Add a filesystem-backed regression test for the Arch pacman local database counter, including ignored non-directory entries and an unavailable database path.
 - [ ] Add regression tests for multiple GPUs, displays, batteries, network interfaces, and CPUFreq policies.
 - [x] Add a CI source audit that flags common subprocess APIs, socket APIs, and direct network-client dependencies; treat it as defense-in-depth rather than a formal proof.
 - [ ] Verify output on the primary Arch Linux x86_64 target, including the user's CachyOS systems; expand to AMD, VM, and minimal/container environments only when available and useful.
@@ -215,7 +216,8 @@ The first source review after setting these priorities found the following concr
 
 **Priority: P1 · Measure first, optimize second**
 
-- [ ] Establish a reproducible startup benchmark for the compiled release binary on real hardware.
+- [ ] Establish a reproducible startup benchmark baseline for the compiled release binary on the user's Arch/CachyOS hardware.
+- [x] Add `scripts/benchmark-startup.sh`: 10 warm-up runs, 100 measured release-binary runs, environment metadata, and a JSON report via external Hyperfine.
 - [ ] Measure cold-cache and warm-cache runs separately; record CPU, kernel, storage, build profile, compiler, and command used.
 - [ ] Report distributions (median and tail/percentile where tooling supports it), not one best-case timing.
 - [ ] Measure the cost of each detector, especially package database traversal, PCI database parsing, mount enumeration, and sensor discovery.
@@ -311,6 +313,8 @@ A change is complete only when all applicable items below are satisfied:
 - [Arch Linux packaging standards](https://wiki.archlinux.org/title/Arch_Packaging_Standards)
 - [Arch makepkg manual](https://man.archlinux.org/man/makepkg.8)
 - [Fastfetch upstream repository and MIT license](https://github.com/fastfetch-cli/fastfetch)
+- [Arch Linux pacman local database and database paths](https://wiki.archlinux.org/title/Pacman)
+- [pacman.conf(5) — DBPath and default database directory](https://man.archlinux.org/man/pacman.conf.5.en)
 
 Use primary documentation first and revisit these links when implementing the related phase:
 
