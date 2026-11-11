@@ -89,10 +89,14 @@ impl TuxApp {
     }
 
     fn draw(&mut self, frame: &mut Frame) {
+        let rows = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(1), Constraint::Length(1)])
+            .split(frame.area());
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(62), Constraint::Percentage(38)])
-            .split(frame.area());
+            .split(rows[0]);
 
         let tux_block = Block::default()
             .title(" TUX // 3D ")
@@ -174,13 +178,7 @@ impl TuxApp {
             Span::styled("Q / Esc", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
             Span::raw(" to exit"),
         ]));
-        let footer_area = Rect {
-            x: frame.area().x,
-            y: frame.area().bottom().saturating_sub(1),
-            width: frame.area().width,
-            height: 1,
-        };
-        frame.render_widget(footer, footer_area);
+        frame.render_widget(footer, rows[1]);
     }
 
     fn handle_mouse(
@@ -299,10 +297,19 @@ impl TuxModel {
     }
 
     fn clear(&self) -> io::Result<()> {
+        let mut first_error = None;
         for part in &self.parts {
-            part.clear()?;
+            if let Err(error) = part.clear() {
+                if first_error.is_none() {
+                    first_error = Some(error);
+                }
+            }
         }
-        Ok(())
+
+        match first_error {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
     }
 }
 
