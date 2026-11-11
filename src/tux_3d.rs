@@ -16,7 +16,7 @@ use crossterm::{
     },
     execute, terminal,
 };
-use ratatui::layout::Rect;
+use ratatui_core::layout::Rect;
 use ratatui_ratty::{ObjectFormat, RattyGraphic, RattyGraphicSettings};
 
 use crate::output::OutputLayout;
