@@ -1,252 +1,158 @@
-//! Interactive 3D Tux view powered by Orhun Parmaksız's Ratty Graphics Protocol.
+//! Inline, mouse-interactive 3D Tux for Ratty terminals.
+//!
+//! This intentionally does not create a Ratatui terminal, alternate screen, or
+//! full-screen interface. The 3D object occupies the same cells as the classic
+//! seven-line ASCII logo; Praxfetch's system-information columns stay untouched.
 
-use std::{io::{self, Write}, time::Duration};
+use std::{
+    io::{self, IsTerminal, Write},
+    time::Duration,
+};
 
 use crossterm::{
-    event::{
-        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseButton,
-        MouseEventKind,
-    },
+    cursor,
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseButton, MouseEventKind},
     execute,
+    terminal,
 };
-use ratatui::{
-    DefaultTerminal, Frame,
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Widget},
-};
+use ratatui::layout::Rect;
 use ratatui_ratty::{ObjectFormat, RattyGraphic, RattyGraphicSettings};
 
-use crate::info::{self, SystemInfo};
+use crate::output::OutputLayout;
 
 const MODEL_ID_BASE: u32 = 71_071;
-const FRAME_INTERVAL: Duration = Duration::from_millis(33);
+const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
-/// Start the optional Ratty-backed interactive 3D Tux view.
-///
-/// This mode requires the Ratty terminal emulator. The regular CLI output
-/// remains independent from Ratty and does not enter an interactive event loop.
-pub fn run() -> io::Result<()> {
-    let mut terminal = ratatui::init();
+/// Print the usual Praxfetch layout and replace only its ASCII logo with Tux.
+pub fn run(output: &OutputLayout) -> io::Result<()> {
+    if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotConnected,
+            "interactive 3D mode requires a terminal; run it inside Ratty",
+        ));
+    }
 
-    let result = (|| {
-        execute!(io::stdout(), EnableMouseCapture)?;
-        if let Err(error) = activate_tux_camera() {
-            let _ = activate_default_camera_slot();
-            let _ = execute!(io::stdout(), DisableMouseCapture);
-            return Err(error);
-        }
-        let result = run_app(&mut terminal);
-        let camera_cleanup = activate_default_camera_slot();
-        let mouse_cleanup = execute!(io::stdout(), DisableMouseCapture);
-        result.and(camera_cleanup).and(mouse_cleanup)
+    // RGP uses absolute terminal-cell coordinates. Ask the terminal where this
+    // command's output begins so the model is placed correctly below the prompt.
+    let origin = cursor::position()?;
+    let mut terminal_mode = TerminalMode::enter()?;
+
+    let result = run_inline(output, origin);
+    let restore_result = terminal_mode.restore();
+
+    result.and(restore_result)
+}
+
+fn run_inline(output: &OutputLayout, origin: (u16, u16)) -> io::Result<()> {
+    let mut model = TuxModel::new()?;
+    let area = Rect::new(origin.0, origin.1, output.logo_width(), output.logo_height());
+
+    let interaction = (|| {
+        output.print_with_3d_logo_slot()?;
+        model.place(area)?;
+        interact(&mut model, area)
     })();
 
-    ratatui::restore();
-    result
+    // Delete only the object IDs created by this Praxfetch process, then put
+    // the ordinary ASCII Tux back into the exact same output column.
+    let object_cleanup = model.clear();
+    let text_restore = output.restore_ascii_logo(origin);
+
+    interaction.and(object_cleanup).and(text_restore)
 }
 
-
-/// Use a dedicated Ratty camera slot so the user's default slot is not overwritten.
-fn activate_tux_camera() -> io::Result<()> {
-    io::stdout().write_all(
-        b"\x1b_ratty;g;c;id=9;set=1;type=Ortho;scale=0.95;rx=8;ry=18;rz=2\x1b\\",
-    )?;
-    io::stdout().flush()
+struct TerminalMode {
+    raw: bool,
+    mouse: bool,
 }
 
-/// Return to camera slot zero without changing its saved projection or transform.
-fn activate_default_camera_slot() -> io::Result<()> {
-    io::stdout().write_all(b"\x1b_ratty;g;c;id=0;set=1\x1b\\")?;
-    io::stdout().flush()
-}
-
-fn run_app(terminal: &mut DefaultTerminal) -> io::Result<()> {
-    let mut app = TuxApp::new()?;
-    let result = app.run(terminal);
-    let cleanup = app.clear();
-    result.and(cleanup)
-}
-
-struct TuxApp {
-    system: SystemInfo,
-    model: TuxModel,
-    viewport: Rect,
-    drag_position: Option<(u16, u16)>,
-}
-
-impl TuxApp {
-    fn new() -> io::Result<Self> {
-        Ok(Self {
-            system: info::collect(),
-            model: TuxModel::new()?,
-            viewport: Rect::default(),
-            drag_position: None,
-        })
-    }
-
-    fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
-        loop {
-            terminal.draw(|frame| self.draw(frame))?;
-
-            if !event::poll(FRAME_INTERVAL)? {
-                continue;
-            }
-
-            match event::read()? {
-                Event::Key(key)
-                    if key.code == KeyCode::Esc
-                        || key.code == KeyCode::Char('q')
-                        || key.code == KeyCode::Char('Q') =>
-                {
-                    return Ok(());
-                }
-                Event::Mouse(mouse) => self.handle_mouse(mouse.kind, mouse.column, mouse.row)?,
-                Event::Resize(_, _) => self.drag_position = None,
-                _ => {}
-            }
-        }
-    }
-
-    fn draw(&mut self, frame: &mut Frame<'_>) {
-        let rows = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Min(1), Constraint::Length(1)])
-            .split(frame.area());
-        let chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(62), Constraint::Percentage(38)])
-            .split(rows[0]);
-
-        let tux_block = Block::default()
-            .title(" TUX // 3D ")
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan));
-        self.viewport = tux_block.inner(chunks[0]);
-        frame.render_widget(tux_block, chunks[0]);
-
-        for part in &self.model.parts {
-            part.render(self.viewport, frame.buffer_mut());
-        }
-
-        let system_block = Block::default()
-            .title(" SYSTEM ")
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Blue));
-        let host = if !self.system.host.product.is_empty() {
-            self.system.host.product.clone()
-        } else if !self.system.host.vendor.is_empty() {
-            self.system.host.vendor.clone()
-        } else {
-            "unknown".to_owned()
+impl TerminalMode {
+    fn enter() -> io::Result<Self> {
+        terminal::enable_raw_mode()?;
+        let mut mode = Self {
+            raw: true,
+            mouse: false,
         };
-        let packages = self
-            .system
-            .packages
-            .count
-            .map(|count| count.to_string())
-            .unwrap_or_else(|| "unknown".to_owned());
-        let fields = [
-            ("", format!("{}@{}", self.system.user, self.system.hostname)),
-            ("os", info::os_label(&self.system.os)),
-            ("host", host),
-            ("kernel", self.system.kernel.clone()),
-            (
-                "uptime",
-                self.system
-                    .uptime
-                    .map(info::uptime)
-                    .unwrap_or_else(|| "unknown".to_owned()),
-            ),
-            ("pkgs", packages),
-            ("memory", info::memory_compact(&self.system.memory)),
-        ];
-        let label_width = fields
-            .iter()
-            .map(|(label, _)| label.chars().count())
-            .max()
-            .unwrap_or(0);
-        let lines = fields
-            .iter()
-            .map(|(label, value)| {
-                if label.is_empty() {
-                    Line::from(Span::styled(
-                        value.clone(),
-                        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
-                    ))
-                } else {
-                    Line::from(vec![
-                        Span::styled(
-                            format!("{label:<label_width$} "),
-                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-                        ),
-                        Span::raw(value.clone()),
-                    ])
-                }
-            })
-            .collect::<Vec<_>>();
-        let system = Paragraph::new(lines)
-            .block(system_block)
-            .style(Style::default().fg(Color::White));
-        frame.render_widget(system, chunks[1]);
 
-        let footer = Paragraph::new(Line::from(vec![
-            Span::styled(
-                "Drag",
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-            ),
-            Span::raw(" to rotate  "),
-            Span::styled(
-                "Scroll",
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-            ),
-            Span::raw(" to zoom  "),
-            Span::styled(
-                "Q / Esc",
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-            ),
-            Span::raw(" to exit"),
-        ]));
-        frame.render_widget(footer, rows[1]);
+        if let Err(error) = execute!(io::stdout(), EnableMouseCapture) {
+            let _ = mode.restore();
+            return Err(error);
+        }
+        mode.mouse = true;
+        Ok(mode)
     }
 
-    fn handle_mouse(
-        &mut self,
-        kind: MouseEventKind,
-        column: u16,
-        row: u16,
-    ) -> io::Result<()> {
-        let inside = column >= self.viewport.x
-            && column < self.viewport.right()
-            && row >= self.viewport.y
-            && row < self.viewport.bottom();
+    fn restore(&mut self) -> io::Result<()> {
+        let mut first_error = None;
 
-        match kind {
-            MouseEventKind::Down(MouseButton::Left) if inside => {
-                self.drag_position = Some((column, row));
+        if self.mouse {
+            if let Err(error) = execute!(io::stdout(), DisableMouseCapture) {
+                first_error = Some(error);
             }
-            MouseEventKind::Drag(MouseButton::Left) => {
-                if let Some((previous_x, previous_y)) = self.drag_position {
-                    let dx = i32::from(column) - i32::from(previous_x);
-                    let dy = i32::from(row) - i32::from(previous_y);
-                    self.model.rotate(dx as f32 * 2.0, dy as f32 * 2.0)?;
+            self.mouse = false;
+        }
+
+        if self.raw {
+            if let Err(error) = terminal::disable_raw_mode() {
+                if first_error.is_none() {
+                    first_error = Some(error);
                 }
-                self.drag_position = Some((column, row));
             }
-            MouseEventKind::Up(MouseButton::Left) => {
-                self.drag_position = None;
+            self.raw = false;
+        }
+
+        match first_error {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    }
+}
+
+impl Drop for TerminalMode {
+    fn drop(&mut self) {
+        let _ = self.restore();
+    }
+}
+
+fn interact(model: &mut TuxModel, area: Rect) -> io::Result<()> {
+    let mut drag_position = None;
+
+    loop {
+        if !event::poll(EVENT_POLL_INTERVAL)? {
+            continue;
+        }
+
+        match event::read()? {
+            Event::Key(key) if key.code == KeyCode::Esc || key.code == KeyCode::Char('q') || key.code == KeyCode::Char('Q') => {
+                return Ok(());
             }
-            MouseEventKind::ScrollUp if inside => self.model.zoom(0.08)?,
-            MouseEventKind::ScrollDown if inside => self.model.zoom(-0.08)?,
+            Event::Mouse(mouse) => {
+                let x = mouse.column;
+                let y = mouse.row;
+                let inside = x >= area.x && x < area.right() && y >= area.y && y < area.bottom();
+
+                match mouse.kind {
+                    MouseEventKind::Down(MouseButton::Left) if inside => {
+                        drag_position = Some((x, y));
+                    }
+                    MouseEventKind::Drag(MouseButton::Left) => {
+                        if let Some((previous_x, previous_y)) = drag_position {
+                            let dx = i32::from(x) - i32::from(previous_x);
+                            let dy = i32::from(y) - i32::from(previous_y);
+                            model.rotate(dx as f32 * 2.0, dy as f32 * 2.0)?;
+                        }
+                        drag_position = if inside { Some((x, y)) } else { None };
+                    }
+                    MouseEventKind::Up(MouseButton::Left) => {
+                        drag_position = None;
+                    }
+                    MouseEventKind::ScrollUp if inside => model.zoom(0.08)?,
+                    MouseEventKind::ScrollDown if inside => model.zoom(-0.08)?,
+                    _ => {}
+                }
+            }
             _ => {}
         }
-
-        Ok(())
-    }
-
-    fn clear(&self) -> io::Result<()> {
-        self.model.clear()
     }
 }
 
@@ -276,10 +182,12 @@ impl TuxModel {
         ];
 
         let mut parts: Vec<RattyGraphic<'static>> = Vec::with_capacity(definitions.len());
+
         for (index, (name, color, center, radii)) in definitions.into_iter().enumerate() {
             let id = MODEL_ID_BASE
                 .wrapping_add(std::process::id().wrapping_mul(16))
                 .wrapping_add(index as u32);
+
             let settings = RattyGraphicSettings::new(format!("praxfetch-tux-{name}.obj"))
                 .id(id)
                 .format(ObjectFormat::Obj)
@@ -288,17 +196,18 @@ impl TuxModel {
                 .scale(0.95)
                 .color(color)
                 .brightness(1.0);
+
             let graphic = RattyGraphic::new(settings);
-            let mesh = ellipsoid_obj(center, radii, 16, 10);
-            if let Err(error) =
-                graphic.register_payload_with_name(mesh.as_bytes(), Some(name))
-            {
+            let mesh = ellipsoid_obj(center, radii, 20, 12);
+
+            if let Err(error) = graphic.register_payload_with_name(mesh.as_bytes(), Some(name)) {
                 let _ = graphic.clear();
                 for registered in &parts {
                     let _ = registered.clear();
                 }
                 return Err(error);
             }
+
             parts.push(graphic);
         }
 
@@ -308,6 +217,14 @@ impl TuxModel {
             pitch: 5.0,
             scale: 0.95,
         })
+    }
+
+    fn place(&self, area: Rect) -> io::Result<()> {
+        let mut stdout = io::stdout().lock();
+        for part in &self.parts {
+            stdout.write_all(part.place_sequence(area).as_bytes())?;
+        }
+        stdout.flush()
     }
 
     fn rotate(&mut self, yaw_delta: f32, pitch_delta: f32) -> io::Result<()> {
@@ -361,22 +278,26 @@ fn ellipsoid_obj(
         let phi = std::f32::consts::PI * ring as f32 / rings as f32;
         let y = phi.cos();
         let radial = phi.sin();
+
         for segment in 0..segments {
             let theta = std::f32::consts::TAU * segment as f32 / segments as f32;
             let x = radial * theta.cos();
             let z = radial * theta.sin();
+
             obj.push_str(&format!(
                 "v {:.5} {:.5} {:.5}\n",
                 center[0] + x * radii[0],
                 center[1] + y * radii[1],
                 center[2] + z * radii[2]
             ));
+
             let nx = x / radii[0];
             let ny = y / radii[1];
             let nz = z / radii[2];
             let normal_length = (nx * nx + ny * ny + nz * nz)
                 .sqrt()
                 .max(f32::EPSILON);
+
             obj.push_str(&format!(
                 "vn {:.5} {:.5} {:.5}\n",
                 nx / normal_length,
@@ -393,6 +314,7 @@ fn ellipsoid_obj(
             let b = ring * segments + next + 1;
             let c = (ring + 1) * segments + next + 1;
             let d = (ring + 1) * segments + segment + 1;
+
             obj.push_str(&format!(
                 "f {a}//{a} {b}//{b} {c}//{c}\nf {a}//{a} {c}//{c} {d}//{d}\n"
             ));
@@ -418,7 +340,7 @@ mod tests {
 
     #[test]
     fn generated_tux_mesh_uses_only_finite_coordinates() {
-        let obj = ellipsoid_obj([0.2, -0.3, 0.4], [0.5, 0.6, 0.7], 16, 10);
+        let obj = ellipsoid_obj([0.2, -0.3, 0.4], [0.5, 0.6, 0.7], 20, 12);
         for line in obj.lines().filter(|line| line.starts_with("v ")) {
             let values = line
                 .split_whitespace()
