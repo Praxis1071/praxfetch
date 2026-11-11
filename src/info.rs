@@ -141,6 +141,7 @@ fn gpu_vendor_name(vendor: &str) -> Option<&'static str> {
     }
 }
 
+#[allow(dead_code)]
 fn read_gpu() -> GpuInfo {
     let Some(entries) = read_dir_entries(Path::new("/sys/class/drm")) else {
         return GpuInfo::default();
@@ -297,6 +298,7 @@ fn read_pci_device_names(
     BTreeMap::new()
 }
 
+#[allow(dead_code)]
 fn read_display() -> DisplayInfo {
     let Some(entries) = read_dir_entries(Path::new("/sys/class/drm")) else {
         return DisplayInfo::default();
@@ -340,6 +342,7 @@ fn read_display() -> DisplayInfo {
     DisplayInfo { devices }
 }
 
+#[allow(dead_code)]
 fn read_network() -> NetworkInfo {
     let Some(entries) = read_dir_entries(Path::new("/sys/class/net")) else {
         return NetworkInfo::default();
@@ -368,6 +371,7 @@ fn read_network() -> NetworkInfo {
     result
 }
 
+#[derive(Default)]
 #[allow(dead_code)]
 pub struct SystemInfo {
     pub user: String,
@@ -485,6 +489,7 @@ fn unescape_os_release_unquoted(value: &str) -> String {
     output
 }
 
+#[allow(dead_code)]
 fn read_cpu() -> CpuInfo {
     let text = fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
     let mut model = String::new();
@@ -704,6 +709,7 @@ fn choose_cpu_temperature(readings: &[(String, f32)]) -> Option<f32> {
         .reduce(f32::max)
 }
 
+#[allow(dead_code)]
 fn read_cpu_temperature() -> TemperatureInfo {
     let mut readings = Vec::new();
 
@@ -905,6 +911,7 @@ fn parse_load_average(text: &str) -> Option<(f64, f64, f64)> {
         .then_some(values)
 }
 
+#[allow(dead_code)]
 fn read_load_avg() -> Option<(f64, f64, f64)> {
     parse_load_average(&read("/proc/loadavg"))
 }
@@ -1002,6 +1009,7 @@ fn read_packages() -> PackageInfo {
     }
 }
 
+#[allow(dead_code)]
 fn read_battery() -> BatteryInfo {
     let Some(entries) = read_dir_entries(Path::new("/sys/class/power_supply")) else {
         return BatteryInfo::default();
@@ -1295,6 +1303,7 @@ fn filesystem_capacity(path: &Path) -> Option<(u64, u64)> {
     (total > 0).then_some((total, available))
 }
 
+#[allow(dead_code)]
 fn read_disk() -> DiskInfo {
     let Ok(mountinfo) = fs::read("/proc/self/mountinfo") else {
         return DiskInfo::default();
@@ -1329,21 +1338,11 @@ fn read_disk() -> DiskInfo {
 }
 
 pub fn collect() -> SystemInfo {
-    let shell = env::var("SHELL").unwrap_or_else(|_| "unknown".into());
-    let shell_version = env::var("BASH_VERSION")
-        .or_else(|_| env::var("ZSH_VERSION"))
-        .or_else(|_| env::var("FISH_VERSION"))
-        .unwrap_or_default();
-
-    let desktop = env::var("XDG_CURRENT_DESKTOP")
-        .or_else(|_| env::var("DESKTOP_SESSION"))
-        .unwrap_or_else(|_| "unknown".into());
-
-    let terminal = env::var("TERM_PROGRAM")
-        .or_else(|_| env::var("TERM"))
-        .unwrap_or_else(|_| "unknown".into());
-
-    let (memory, swap) = read_memory_and_swap();
+    // The default interface intentionally displays only this compact set.
+    // Do not probe hidden hardware modules on the default path: several of
+    // them enumerate sysfs or mounted filesystems and add work without
+    // contributing anything to the rendered output.
+    let (memory, _) = read_memory_and_swap();
 
     SystemInfo {
         user: env::var("USER")
@@ -1357,21 +1356,9 @@ pub fn collect() -> SystemInfo {
         },
         kernel: read("/proc/sys/kernel/osrelease"),
         uptime: parse_uptime_seconds(&read("/proc/uptime")),
-        load_avg: read_load_avg(),
         packages: read_packages(),
-        shell,
-        shell_version,
-        desktop,
-        terminal,
-        cpu: read_cpu(),
-        temperature: read_cpu_temperature(),
         memory,
-        swap,
-        battery: read_battery(),
-        disk: read_disk(),
-        gpu: read_gpu(),
-        display: read_display(),
-        network: read_network(),
+        ..SystemInfo::default()
     }
 }
 
