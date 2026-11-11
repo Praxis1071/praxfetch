@@ -51,10 +51,11 @@ impl OutputLayout {
             .max()
             .unwrap_or(0);
 
-        let colored_logo_columns = logo
+        let logo_column_width = ascii::logo_width(&logo) + 4;
+        let colored_logo_columns: Vec<String> = logo
             .iter()
             .map(|line| {
-                let padded = ascii::pad_logo_line(line, ascii::logo_width(&logo) + 4);
+                let padded = ascii::pad_logo_line(line, logo_column_width);
                 ascii::colorize_logo_line(&padded, &system.os)
             })
             .collect();
@@ -72,7 +73,7 @@ impl OutputLayout {
             .collect();
 
         Self {
-            logo_column_width: ascii::logo_width(&logo) + 4,
+            logo_column_width,
             logo,
             colored_logo_columns,
             right_columns,
