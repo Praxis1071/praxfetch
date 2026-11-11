@@ -104,7 +104,6 @@ pub fn colorize_logo_line(line: &str, os: &OsInfo) -> String {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
