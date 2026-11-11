@@ -1401,6 +1401,18 @@ pub fn uptime(seconds: f64) -> String {
     }
 }
 
+pub fn memory_compact(m: &MemoryInfo) -> String {
+    let Some(total) = m.total_kb.filter(|total| *total > 0) else {
+        return "unknown".into();
+    };
+    let total_mb = total / 1024;
+    let Some(available) = m.available_kb else {
+        return format!("unknown / {total_mb}M");
+    };
+    let used_mb = total.saturating_sub(available.min(total)) / 1024;
+    format!("{used_mb}M / {total_mb}M")
+}
+
 pub fn memory(m: &MemoryInfo) -> String {
     let Some(total) = m.total_kb.filter(|total| *total > 0) else {
         return "unknown".into();
@@ -1652,6 +1664,36 @@ mod tests {
         assert_eq!(memory.available_kb, None);
         assert_eq!(swap.total_kb, Some(0));
         assert_eq!(swap.free_kb, Some(0));
+    }
+
+    #[test]
+    fn compact_memory_uses_integer_megabytes_and_clamps_available_memory() {
+        assert_eq!(
+            memory_compact(&MemoryInfo {
+                total_kb: Some(15_985_772),
+                available_kb: Some(11_829_356),
+            }),
+            "4059M / 15611M"
+        );
+        assert_eq!(
+            memory_compact(&MemoryInfo {
+                total_kb: Some(1024),
+                available_kb: Some(2048),
+            }),
+            "0M / 1M"
+        );
+    }
+
+    #[test]
+    fn compact_memory_keeps_missing_usage_unknown() {
+        assert_eq!(
+            memory_compact(&MemoryInfo {
+                total_kb: Some(1024),
+                available_kb: None,
+            }),
+            "unknown / 1M"
+        );
+        assert_eq!(memory_compact(&MemoryInfo::default()), "unknown");
     }
 
     #[test]
