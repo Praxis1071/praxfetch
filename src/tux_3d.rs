@@ -11,9 +11,10 @@ use std::{
 
 use crossterm::{
     cursor,
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseButton, MouseEventKind},
-    execute,
-    terminal,
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseButton, MouseEventKind,
+    },
+    execute, terminal,
 };
 use ratatui::layout::Rect;
 use ratatui_ratty::{ObjectFormat, RattyGraphic, RattyGraphicSettings};
@@ -123,13 +124,18 @@ fn interact(model: &mut TuxModel, area: Rect) -> io::Result<()> {
         }
 
         match event::read()? {
-            Event::Key(key) if key.code == KeyCode::Esc || key.code == KeyCode::Char('q') || key.code == KeyCode::Char('Q') => {
+            Event::Key(key)
+                if key.code == KeyCode::Esc
+                    || key.code == KeyCode::Char('q')
+                    || key.code == KeyCode::Char('Q') =>
+            {
                 return Ok(());
             }
             Event::Mouse(mouse) => {
                 let x = mouse.column;
                 let y = mouse.row;
-                let inside = x >= area.x && x < area.right() && y >= area.y && y < area.bottom();
+                let inside =
+                    x >= area.x && x < area.right() && y >= area.y && y < area.bottom();
 
                 match mouse.kind {
                     MouseEventKind::Down(MouseButton::Left) if inside => {
