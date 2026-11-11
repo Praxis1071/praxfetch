@@ -58,6 +58,18 @@ praxfetch --version
 
 --no-color and the standard NO_COLOR environment convention disable ANSI colors.
 
+## Installation
+
+Install the current source revision into the user-local Cargo binary directory:
+
+```bash
+bash scripts/install.sh
+```
+
+The installer builds the optimized release binary, copies it to `$CARGO_HOME/bin` (or `~/.cargo/bin` when `CARGO_HOME` is unset), and adds that directory to the startup configuration for Bash, Zsh, or Fish when it is missing from PATH. If it updates the shell configuration, open a new terminal once; afterwards, run `praxfetch` directly from any directory.
+
+To update an existing installation, run the same installer again. It replaces the previous user-local binary without requiring root privileges.
+
 ## Build and test
 
 ~~~bash
