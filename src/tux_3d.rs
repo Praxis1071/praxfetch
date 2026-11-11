@@ -194,11 +194,20 @@ impl TuxApp {
         frame.render_widget(system, chunks[1]);
 
         let footer = Paragraph::new(Line::from(vec![
-            Span::styled("Drag", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "Drag",
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            ),
             Span::raw(" to rotate  "),
-            Span::styled("Scroll", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "Scroll",
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            ),
             Span::raw(" to zoom  "),
-            Span::styled("Q / Esc", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "Q / Esc",
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            ),
             Span::raw(" to exit"),
         ]));
         frame.render_widget(footer, rows[1]);
