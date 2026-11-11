@@ -30,11 +30,11 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 - **Battery** — /sys/class/power_supply/BAT* when available; preserves charging, discharging, full, and not-charging states, and avoids mixing incompatible energy/charge units and rejects invalid capacity weights when aggregating multiple batteries
 - **GPU** — Linux DRM/sysfs card devices and kernel driver; resolves PCI vendor/device IDs through the locally installed pci.ids database when available, with readable vendor/ID fallback
 - **Display** — connected DRM connector names; active resolution is not inferred from the list of supported modes exposed by sysfs
-- **Network** — interface count, operational link state, and wireless interface count
+- **Network** — interface count, operational link state, and wireless interface count (detected internally; not shown in the minimal default output)
 
 ## ASCII logo
 
-praxfetch always displays the same Tux ASCII mascot on every Linux distribution. The logo is intentionally independent of distro detection, keeping the visual identity consistent. Distribution-specific color accents may still be applied.
+praxfetch always displays the same Tux ASCII mascot on every Linux distribution. The default output is intentionally minimal: username@hostname, OS, host, kernel, uptime, package count, and used/total memory. Distribution-specific color accents may still be applied.
 
 ## Design constraints
 
