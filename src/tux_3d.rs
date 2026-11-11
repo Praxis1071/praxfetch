@@ -33,6 +33,7 @@ pub fn run() -> io::Result<()> {
     let result = (|| {
         execute!(io::stdout(), EnableMouseCapture)?;
         if let Err(error) = activate_tux_camera() {
+            let _ = activate_default_camera_slot();
             let _ = execute!(io::stdout(), DisableMouseCapture);
             return Err(error);
         }
