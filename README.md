@@ -34,7 +34,7 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 
 ## ASCII logo
 
-praxfetch always displays the same Tux ASCII mascot on every Linux distribution. The default output is intentionally minimal: username@hostname, OS, host, kernel, uptime, package count, and used/total memory. Distribution-specific color accents may still be applied.
+praxfetch always displays the same Tux ASCII mascot on every Linux distribution. The default output is intentionally minimal: username@hostname, OS, host, kernel, uptime, package count, and used/total memory in whole MiB. No additional system fields or color-block footer are printed by default. Distribution-specific color accents may still be applied.
 
 ## Design constraints
 
