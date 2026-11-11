@@ -2,6 +2,8 @@
 
 A fast, zero-subprocess Linux system-information fetch utility written in Rust.
 
+**Build requirement:** Rust 1.88 or newer (Ratatui 0.30 requirement).
+
 ## What praxfetch does
 
 praxfetch reads Linux kernel and system metadata directly instead of spawning external commands. It is designed around three principles:
