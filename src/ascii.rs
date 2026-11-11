@@ -104,21 +104,6 @@ pub fn colorize_logo_line(line: &str, os: &OsInfo) -> String {
     }
 }
 
-pub fn blocks(no_color: bool) -> String {
-    if no_color {
-        return "████████████████████████".to_owned();
-    }
-
-    let mut out = String::new();
-    for c in 40..48 {
-        out.push_str(&format!("\x1b[{c}m███"));
-    }
-    for c in 100..108 {
-        out.push_str(&format!("\x1b[{c}m███"));
-    }
-    out.push_str("\x1b[0m");
-    out
-}
 
 #[cfg(test)]
 mod tests {
