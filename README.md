@@ -77,6 +77,15 @@ The project targets millisecond-level startup. **5 ms is a target, not a guarant
 
 Package counting is one of the potentially expensive operations because some package databases require directory traversal or text parsing. This is deliberately preferred over executing a package-manager command, preserving the zero-subprocess guarantee.
 
+For a repeatable warm-start measurement on Arch Linux, install the optional external benchmark tool and run:
+
+~~~bash
+sudo pacman -S hyperfine
+bash scripts/benchmark-startup.sh
+~~~
+
+The script builds the release binary, performs 10 warm-up runs and 100 measured runs, and saves Hyperfine's JSON report under `target/benchmarks/`. It also prints the kernel, architecture, CPU model, Rust version, and CPU governor when available. Do not compare results from different machines or power states as if they were equivalent.
+
 The release profile uses optimization, ThinLTO, one codegen unit, abort-on-panic, and symbol stripping. These settings favor a compact, optimized release binary; actual startup performance must still be measured on real hardware.
 
 ## Architecture
