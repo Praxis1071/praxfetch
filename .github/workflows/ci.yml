@@ -31,7 +31,9 @@ jobs:
         run: cargo test --all-targets
 
       - name: Shell script syntax
-        run: bash -n scripts/*.sh
+        run: |
+          bash -n scripts/*.sh
+          sh -n scripts/install.sh
 
       - name: Runtime invariant audit
         run: bash scripts/check-runtime-invariants.sh
