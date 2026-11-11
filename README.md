@@ -8,7 +8,7 @@ praxfetch reads Linux kernel and system metadata directly instead of spawning ex
 
 - **Fast startup:** keep detection small and avoid shelling out.
 - **Honest output:** unavailable data is reported as unavailable instead of being guessed.
-- **Portable Linux behavior:** use standard Linux interfaces such as /proc, /sys, /etc/os-release, and POSIX APIs.
+- **Arch-first correctness:** validate behavior on Arch Linux x86_64 and CachyOS before making broader compatibility claims; use documented Linux interfaces such as /proc, /sys, /etc/os-release, and POSIX APIs.
 
 ## Current modules
 
@@ -84,7 +84,7 @@ The release profile uses optimization, ThinLTO, one codegen unit, abort-on-panic
 The code is intentionally small, but follows a useful detection/formatting boundary:
 
 - src/info.rs — current Linux detection, parsing, validation, and formatting implementation; modular extraction is planned in ROADMAP.md.
-- src/ascii.rs — the single Tux logo, terminal-width-safe padding, distro-aware color accents, and color blocks.
+- src/ascii.rs — the single Tux logo, terminal-width-safe padding, and distro-aware color accents.
 - src/main.rs — CLI parsing and final presentation.
 
 This mirrors a principle used by mature fetch tools such as Fastfetch: detection logic should not depend on presentation logic.
