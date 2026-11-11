@@ -68,3 +68,12 @@ fn help_and_version_exit_successfully() {
     let version = String::from_utf8(version.stdout).expect("version should be UTF-8");
     assert!(version.starts_with("praxfetch "));
 }
+
+#[test]
+fn invalid_arguments_fail_with_a_diagnostic() {
+    let output = run_praxfetch(&["--not-a-real-option"], false);
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8(output.stderr).expect("error output should be UTF-8");
+    assert!(stderr.contains("unexpected argument"), "{stderr}");
+}
