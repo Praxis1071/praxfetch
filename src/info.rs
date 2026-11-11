@@ -1,3 +1,5 @@
+mod os_release;
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     env,
@@ -418,7 +420,7 @@ fn read_os() -> OsInfo {
             continue;
         };
 
-        let value = parse_os_release_value(value.trim());
+        let value = os_release::parse_value(value.trim());
 
         match key {
             "ID" => o.id = value,
@@ -432,61 +434,6 @@ fn read_os() -> OsInfo {
     }
 
     o
-}
-
-fn parse_os_release_value(value: &str) -> String {
-    let value = value.trim();
-
-    if let Some(inner) = value.strip_prefix('"').and_then(|v| v.strip_suffix('"')) {
-        return unescape_os_release_double_quoted(inner);
-    }
-
-    if let Some(inner) = value.strip_prefix('\'').and_then(|v| v.strip_suffix('\'')) {
-        // Single quotes preserve every character, including backslashes.
-        return inner.to_owned();
-    }
-
-    unescape_os_release_unquoted(value)
-}
-
-fn unescape_os_release_double_quoted(value: &str) -> String {
-    let mut output = String::with_capacity(value.len());
-    let mut chars = value.chars();
-
-    while let Some(ch) = chars.next() {
-        if ch == '\\' {
-            match chars.next() {
-                Some(next @ ('\\' | '"' | '$' | '`')) => output.push(next),
-                Some(next) => {
-                    output.push('\\');
-                    output.push(next);
-                }
-                None => output.push('\\'),
-            }
-        } else {
-            output.push(ch);
-        }
-    }
-
-    output
-}
-
-fn unescape_os_release_unquoted(value: &str) -> String {
-    let mut output = String::with_capacity(value.len());
-    let mut chars = value.chars();
-
-    while let Some(ch) = chars.next() {
-        if ch == '\\' {
-            match chars.next() {
-                Some(next) => output.push(next),
-                None => output.push('\\'),
-            }
-        } else {
-            output.push(ch);
-        }
-    }
-
-    output
 }
 
 #[allow(dead_code)]
@@ -2029,15 +1976,5 @@ not a valid mount line\n\
         assert_eq!(battery(&BatteryInfo::default()), "none");
     }
 
-    #[test]
-    fn os_release_quotes_and_escapes_are_parsed() {
-        assert_eq!(parse_os_release_value("\"CachyOS 2026\""), "CachyOS 2026");
-        assert_eq!(parse_os_release_value("'CachyOS'"), "CachyOS");
-        assert_eq!(parse_os_release_value("\"A\\\"B\""), "A\"B");
-        assert_eq!(parse_os_release_value("\"A\\qB\""), "A\\qB");
-        assert_eq!(parse_os_release_value("\"A\\$B\""), "A$B");
-        assert_eq!(parse_os_release_value("'A\\\\B'"), "A\\\\B");
-        assert_eq!(parse_os_release_value("A=\\$B"), "A=$B");
-        assert_eq!(parse_os_release_value("A=\\\\B"), "A=\\B");
-    }
+
 }
