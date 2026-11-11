@@ -1,12 +1,15 @@
 //! Interactive 3D Tux view powered by Orhun Parmaksız's Ratty Graphics Protocol.
 
 use std::{
-    io,
+    io::{self, Write},
     time::Duration,
 };
 
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseButton, MouseEventKind},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseButton,
+        MouseEventKind,
+    },
     execute,
 };
 use ratatui::{
@@ -32,13 +35,30 @@ pub fn run() -> io::Result<()> {
 
     let result = (|| {
         execute!(io::stdout(), EnableMouseCapture)?;
+        activate_tux_camera()?;
         let result = run_app(&mut terminal);
-        let cleanup = execute!(io::stdout(), DisableMouseCapture);
-        result.and(cleanup)
+        let camera_cleanup = activate_default_camera_slot();
+        let mouse_cleanup = execute!(io::stdout(), DisableMouseCapture);
+        result.and(camera_cleanup).and(mouse_cleanup)
     })();
 
     ratatui::restore();
     result
+}
+
+
+/// Use a dedicated Ratty camera slot so the user's default slot is not overwritten.
+fn activate_tux_camera() -> io::Result<()> {
+    io::stdout().write_all(
+        b"\x1b_ratty;g;c;id=9;set=1;type=Ortho;scale=0.95;rx=8;ry=18;rz=2\x1b\\",
+    )?;
+    io::stdout().flush()
+}
+
+/// Return to camera slot zero without changing its saved projection or transform.
+fn activate_default_camera_slot() -> io::Result<()> {
+    io::stdout().write_all(b"\x1b_ratty;g;c;id=0;set=1\x1b\\")?;
+    io::stdout().flush()
 }
 
 fn run_app(terminal: &mut DefaultTerminal) -> io::Result<()> {
